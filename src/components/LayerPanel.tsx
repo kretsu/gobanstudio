@@ -93,28 +93,37 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
   const [manuallyToggled, setManuallyToggled] = useState<Record<string, boolean>>({});
 
   const isVariationExpanded = (vId: string) => {
-    const isSelectedOrAncestor = activeVariationId === vId || isAncestorOfVariation(vId, activeVariationId, project.variations);
     if (manuallyToggled[vId] !== undefined) {
       return manuallyToggled[vId];
     }
-    return isSelectedOrAncestor;
+    return false;
   };
 
-  const handleToggleExpand = (vId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleToggleExpand = (vId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setManuallyToggled(prev => ({
       ...prev,
       [vId]: !isVariationExpanded(vId)
     }));
   };
 
+  const handleVariationNameClick = (vId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isCurrentlyExpanded = isVariationExpanded(vId);
+    setManuallyToggled(prev => ({
+      ...prev,
+      [vId]: !isCurrentlyExpanded
+    }));
+    onSelectVariation(vId);
+    onSelectSubLayer(vId, null);
+  };
+
   const handleSelectVariation = (id: string) => {
-    if (manuallyToggled[id] === false) {
-      setManuallyToggled(prev => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
+    if (!isVariationExpanded(id)) {
+      setManuallyToggled(prev => ({
+        ...prev,
+        [id]: true
+      }));
     }
     onSelectVariation(id);
     onSelectSubLayer(id, null);
@@ -236,7 +245,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                 : 'bg-slate-900/60 border-slate-800/80 hover:bg-slate-800/40 hover:border-slate-700'
             }`}
           >
-            <div className="p-2.5 flex items-start justify-between gap-2">
+            <div className={`flex justify-between gap-2 ${isExpanded ? 'p-2.5 items-start' : 'px-2.5 py-1.5 items-center min-h-[36px]'}`}>
               {editingId === v.id ? (
                 /* Full-width Inline Rename Mode (hides icons for maximum editing room) */
                 <div
@@ -301,42 +310,191 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
               ) : (
                 /* Normal Display Row */
                 <>
-                  <div className="flex items-start gap-1.5 flex-1 min-w-0">
-                    {/* Expand/Collapse Chevron (if variation has children or sublayers) */}
-                    {hasExpandableContent ? (
+                  {isExpanded ? (
+                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                      {/* Expand/Collapse Chevron */}
                       <button
                         type="button"
                         onClick={(e) => handleToggleExpand(v.id, e)}
                         className="mt-0.5 p-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors flex-shrink-0"
-                        title={isExpanded ? 'Collapse variation' : 'Expand variation'}
+                        title="Collapse variation"
                       >
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        )}
+                        <ChevronDown className="w-3.5 h-3.5" />
                       </button>
-                    ) : (
-                      <span className="w-3.5 flex-shrink-0" />
-                    )}
 
-                    {/* Outdated Status Dot */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleVariationOutdated?.(v.id);
-                      }}
-                      title={v.outdated ? 'Marked outdated (parent changed). Click to mark valid.' : 'Valid variation. Click to toggle.'}
-                      className="mt-0.5 p-0.5 rounded hover:bg-slate-800 transition-colors flex-shrink-0"
-                    >
-                      <span className={`w-2.5 h-2.5 rounded-full inline-block ${v.outdated ? 'bg-rose-500 ring-2 ring-rose-500/30' : 'bg-emerald-500 ring-2 ring-emerald-500/30'}`} />
-                    </button>
+                      {/* Outdated Status Dot */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleVariationOutdated?.(v.id);
+                        }}
+                        title={v.outdated ? 'Marked outdated (parent changed). Click to mark valid.' : 'Valid variation. Click to toggle.'}
+                        className="mt-0.5 p-0.5 rounded hover:bg-slate-800 transition-colors flex-shrink-0"
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full inline-block ${v.outdated ? 'bg-rose-500 ring-2 ring-rose-500/30' : 'bg-emerald-500 ring-2 ring-emerald-500/30'}`} />
+                      </button>
 
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-xs font-medium truncate ${isVarActive ? 'text-indigo-200 font-semibold' : 'text-slate-200'}`}>
-                          {v.name}
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div
+                          className="flex items-center gap-1.5 cursor-pointer"
+                          onClick={(e) => handleVariationNameClick(v.id, e)}
+                        >
+                          <span
+                            className={`text-xs font-medium truncate ${isVarActive ? 'text-indigo-200 font-semibold' : 'text-slate-200 hover:text-white'}`}
+                            title={(v.name || '').split('\n')[0].trim()}
+                          >
+                            {(v.name || '').split('\n')[0].trim()}
+                          </span>
+                          {v.outdated && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 flex-shrink-0">
+                              outdated
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Move & Branch Metadata */}
+                        <div className="flex items-center flex-wrap gap-1 mt-1 text-[10px] text-slate-400">
+                          <span className="bg-slate-800/80 px-1.5 py-0.5 rounded text-slate-300">
+                            {v.moves.length} moves
+                          </span>
+                          {v.branchPoint > 0 && (
+                            <span className="bg-slate-800/80 px-1.5 py-0.5 rounded text-slate-400">
+                              from move {v.branchPoint}
+                            </span>
+                          )}
+                          {childVariationsCount > 0 && (
+                            <span className="bg-indigo-950/60 text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-1">
+                              <GitBranch className="w-2.5 h-2.5" />
+                              {childVariationsCount} {childVariationsCount === 1 ? 'branch' : 'branches'}
+                            </span>
+                          )}
+                          {subLayersCount > 0 && (
+                            <span className="bg-cyan-950/60 text-cyan-300 border border-cyan-800/40 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-1">
+                              <PenTool className="w-2.5 h-2.5" />
+                              {subLayersCount} {subLayersCount === 1 ? 'overlay' : 'overlays'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Tags Area (Spacious & with inline Add Tag support) */}
+                        <div className="flex items-center flex-wrap gap-1 mt-1.5">
+                          {(v.tags || []).map((t) => (
+                            <span
+                              key={t}
+                              className="bg-indigo-950/60 text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-1 group/tag"
+                            >
+                              #{t}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveTag(v.id, t);
+                                }}
+                                className="opacity-0 group-hover/tag:opacity-100 hover:text-rose-400 transition-opacity"
+                                title={`Remove tag #${t}`}
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            </span>
+                          ))}
+
+                          {tagInputVarId === v.id ? (
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={tagInputValue}
+                                onChange={(e) => setTagInputValue(e.target.value)}
+                                placeholder="New tag..."
+                                className="w-20 px-1.5 py-0.5 text-[9px] bg-slate-900 border border-indigo-500 rounded text-slate-100 placeholder-slate-500 focus:outline-none"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.stopPropagation();
+                                    handleAddTag(v.id);
+                                  } else if (e.key === 'Escape') {
+                                    e.stopPropagation();
+                                    setTagInputVarId(null);
+                                    setTagInputValue('');
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddTag(v.id);
+                                }}
+                                className="text-emerald-400 hover:text-emerald-300 p-0.5"
+                              >
+                                <Check className="w-2.5 h-2.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTagInputVarId(null);
+                                  setTagInputValue('');
+                                }}
+                                className="text-slate-400 hover:text-slate-300 p-0.5"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTagInputVarId(v.id);
+                                setTagInputValue('');
+                              }}
+                              className="text-[9px] text-slate-500 hover:text-indigo-300 hover:bg-slate-800/60 px-1.5 py-0.5 rounded border border-dashed border-slate-700/60 transition-colors flex items-center gap-0.5"
+                              title="Add tag to variation"
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                              <span>Tag</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Collapsed Single String View: Outdated status dot + Name */
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      {/* Expand/Collapse Chevron */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleExpand(v.id, e)}
+                        className="p-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors flex-shrink-0"
+                        title="Expand variation"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Outdated Status Dot */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleVariationOutdated?.(v.id);
+                        }}
+                        title={v.outdated ? 'Marked outdated (parent changed). Click to mark valid.' : 'Valid variation. Click to toggle.'}
+                        className="p-0.5 rounded hover:bg-slate-800 transition-colors flex-shrink-0"
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full inline-block ${v.outdated ? 'bg-rose-500 ring-2 ring-rose-500/30' : 'bg-emerald-500 ring-2 ring-emerald-500/30'}`} />
+                      </button>
+
+                      {/* Name (clickable to expand) */}
+                      <div
+                        className="flex items-center gap-1.5 min-w-0 flex-1 cursor-pointer"
+                        onClick={(e) => handleVariationNameClick(v.id, e)}
+                      >
+                        <span
+                          className={`text-xs font-medium truncate ${isVarActive ? 'text-indigo-200 font-semibold' : 'text-slate-200 hover:text-white'}`}
+                          title={(v.name || '').split('\n')[0].trim()}
+                        >
+                          {(v.name || '').split('\n')[0].trim()}
                         </span>
                         {v.outdated && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 flex-shrink-0">
@@ -344,51 +502,10 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                           </span>
                         )}
                       </div>
-
-                      {/* Details & Tags */}
-                      <div className="flex items-center flex-wrap gap-1 mt-1 text-[10px] text-slate-400">
-                        <span className="bg-slate-800/80 px-1.5 py-0.5 rounded text-slate-300">
-                          {v.moves.length} moves
-                        </span>
-                        {v.branchPoint > 0 && (
-                          <span className="bg-slate-800/80 px-1.5 py-0.5 rounded text-slate-400">
-                            from move {v.branchPoint}
-                          </span>
-                        )}
-                        {!isExpanded && childVariationsCount > 0 && (
-                          <span className="bg-indigo-950/60 text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-1">
-                            <GitBranch className="w-2.5 h-2.5" />
-                            {childVariationsCount} {childVariationsCount === 1 ? 'branch' : 'branches'}
-                          </span>
-                        )}
-                        {!isExpanded && subLayersCount > 0 && (
-                          <span className="bg-cyan-950/60 text-cyan-300 border border-cyan-800/40 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-1">
-                            <PenTool className="w-2.5 h-2.5" />
-                            {subLayersCount} {subLayersCount === 1 ? 'overlay' : 'overlays'}
-                          </span>
-                        )}
-                        {(v.tags || []).map((t) => (
-                          <span
-                            key={t}
-                            className="bg-indigo-950/60 text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded text-[9px] flex items-center gap-1 group/tag"
-                          >
-                            #{t}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveTag(v.id, t);
-                              }}
-                              className="opacity-0 group-hover/tag:opacity-100 hover:text-rose-400 transition-opacity"
-                            >
-                              <X className="w-2.5 h-2.5" />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Right Actions: Persistent Lock Icon & Three Dots Menu (Visible ALWAYS until rename) */}
+                  {/* Right Actions: Visibility Icon, Persistent Lock Icon & Three Dots Menu */}
                   <div
                     className="relative flex items-center gap-1 flex-shrink-0"
                     data-layer-menu
@@ -396,6 +513,25 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                     onPointerDown={e => e.stopPropagation()}
                     onMouseDown={e => e.stopPropagation()}
                   >
+                    {/* Visibility Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleLayerVisibility('variation', v.id);
+                      }}
+                      className={`p-1 rounded-md hover:bg-slate-800 transition-colors ${
+                        v.visible !== false ? 'text-indigo-300 hover:text-indigo-200' : 'text-slate-500 hover:text-slate-400'
+                      }`}
+                      title={v.visible !== false ? 'Hide variation' : 'Show variation'}
+                    >
+                      {v.visible !== false ? (
+                        <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                      ) : (
+                        <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                      )}
+                    </button>
+
                     {/* Persistent Lock / Unlock Button */}
                     <button
                       type="button"
@@ -448,7 +584,21 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                             onClick={(e) => {
                               e.stopPropagation();
                               setMenuOpenId(null);
+                              setTagInputVarId(v.id);
+                              setTagInputValue('');
+                            }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-indigo-600/30 hover:text-white flex items-center gap-2"
+                          >
+                            <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Add Tag</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(null);
                               onAddVariation(`${v.name} - Seq ${childVariationsCount + 1}`, ['Sequence'], v.moves.length, v.id);
+                              setManuallyToggled(prev => ({ ...prev, [v.id]: true }));
                             }}
                             className="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-indigo-600/30 hover:text-white flex items-center gap-2"
                           >
@@ -461,6 +611,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                               e.stopPropagation();
                               setMenuOpenId(null);
                               onAddSubLayer(v.id, 'Drawing Overlay', 'drawing');
+                              setManuallyToggled(prev => ({ ...prev, [v.id]: true }));
                             }}
                             className="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-indigo-600/30 hover:text-white flex items-center gap-2"
                           >
@@ -775,6 +926,9 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                     const childCount = project.variations.filter(v => (v.parentId || 'root') === activeVariationId).length;
                     const name = isRoot ? `Variation ${childCount + 1}` : `${parent?.name || 'Var'} - Branch ${childCount + 1}`;
                     onAddVariation(name, ['Branch'], isRoot ? project.root.moves.length : parent?.moves.length, activeVariationId);
+                    if (!isRoot) {
+                      setManuallyToggled(prev => ({ ...prev, [activeVariationId]: true }));
+                    }
                   }}
                   className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-indigo-600/30 hover:text-white flex items-center gap-2.5 transition-colors"
                 >
@@ -791,6 +945,9 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                   onClick={() => {
                     setIsAddMenuOpen(false);
                     onAddSubLayer(activeVariationId, 'Drawing Overlay', 'drawing');
+                    if (activeVariationId !== 'root') {
+                      setManuallyToggled(prev => ({ ...prev, [activeVariationId]: true }));
+                    }
                   }}
                   className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-indigo-600/30 hover:text-white flex items-center gap-2.5 transition-colors"
                 >
@@ -828,31 +985,49 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
         </div>
 
         {allTags.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-            <button
-              onClick={() => setSelectedTag(null)}
-              className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors flex-shrink-0 ${
-                selectedTag === null
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              All
-            </button>
-            {allTags.map((tag) => (
+          <div className="flex flex-col gap-1.5 pt-1">
+            <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="flex items-center gap-1">
+                <Tag className="w-3 h-3 text-indigo-400" />
+                <span>Tags ({allTags.length})</span>
+              </span>
+              {selectedTag && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedTag(null)}
+                  className="text-indigo-400 hover:text-indigo-300 text-[10px] lowercase font-normal"
+                >
+                  clear filter
+                </button>
+              )}
+            </div>
+            <div className="flex items-center flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-0.5 scrollbar-thin">
               <button
-                key={tag}
-                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors flex items-center gap-1 flex-shrink-0 ${
-                  selectedTag === tag
-                    ? 'bg-indigo-600 text-white'
+                type="button"
+                onClick={() => setSelectedTag(null)}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors flex-shrink-0 ${
+                  selectedTag === null
+                    ? 'bg-indigo-600 text-white shadow-sm'
                     : 'bg-slate-800 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Tag className="w-2.5 h-2.5" />
-                <span>{tag}</span>
+                All
               </button>
-            ))}
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors flex items-center gap-1 flex-shrink-0 ${
+                    selectedTag === tag
+                      ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400'
+                      : 'bg-slate-800/90 text-slate-300 hover:text-white hover:bg-slate-750 border border-slate-700/60'
+                  }`}
+                >
+                  <span>#{tag}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

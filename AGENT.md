@@ -24,7 +24,7 @@ gobanstudio/
 ├── src/
 │   ├── components/            # UI Components
 │   │   ├── GobanBoard.tsx     # Canvas Go board rendering (stones, marks, drawings, ghost previews)
-│   │   ├── LayerPanel.tsx     # Photoshop-style tree hierarchy manager
+│   │   ├── LayerPanel.tsx     # Photo editor-style tree hierarchy manager
 │   │   ├── LessonNotes.tsx    # Rich lesson notes and teaching point editor
 │   │   ├── SampleLessons.ts   # Pre-configured teaching scenarios (Joseki, Tsumego)
 │   │   └── Toolbar.tsx        # Tool selection, stone colors, markers, export/import

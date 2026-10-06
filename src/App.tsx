@@ -7,8 +7,10 @@ import {
   NumberingMode,
   Point,
   StoneColor,
+  StoneTheme,
   SubLayer,
-  ToolType
+  ToolType,
+  UiTheme
 } from './types/goban';
 import {
   addSubLayer,
@@ -35,6 +37,7 @@ import {LayerPanel} from './components/LayerPanel';
 import {Toolbar} from './components/Toolbar';
 import {Header} from './components/Header';
 import {LessonNotes} from './components/LessonNotes';
+import {HelpModal, HelpSectionId} from './components/HelpModal';
 import {AlertCircle, CheckCircle, Info} from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -50,6 +53,8 @@ export const App: React.FC = () => {
   const [brushColor, setBrushColor] = useState<string>('#ef4444');
   const [brushWidth, setBrushWidth] = useState<number>(4);
   const [boardTheme, setBoardTheme] = useState<BoardTheme>('kaya');
+  const [stoneTheme, setStoneTheme] = useState<StoneTheme>('slate-shell');
+  const [uiTheme, setUiTheme] = useState<UiTheme>('dark');
   const [showCoordinates, setShowCoordinates] = useState<boolean>(true);
   const [numberingMode, setNumberingMode] = useState<NumberingMode>('auto');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
@@ -57,6 +62,15 @@ export const App: React.FC = () => {
   // Playback / Navigation Scrubber State
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+
+  // Help Modal State
+  const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
+  const [helpSection, setHelpSection] = useState<HelpSectionId>('overview');
+
+  const handleOpenHelp = useCallback((section: HelpSectionId = 'overview') => {
+    setHelpSection(section);
+    setIsHelpOpen(true);
+  }, []);
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'info' | 'success' | 'warning' } | null>(null);
@@ -730,20 +744,27 @@ export const App: React.FC = () => {
       } else if (e.key === 'End') {
         e.preventDefault();
         setCurrentStep(displayState.totalSteps);
+      } else if (e.key === 'F1' || e.key === '?') {
+        e.preventDefault();
+        handleOpenHelp('overview');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [displayState.totalSteps]);
+  }, [displayState.totalSteps, handleOpenHelp]);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div data-ui-theme={uiTheme} className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
       {/* Top Application Header */}
       <Header
         project={project}
         boardTheme={boardTheme}
         setBoardTheme={setBoardTheme}
+        stoneTheme={stoneTheme}
+        setStoneTheme={setStoneTheme}
+        uiTheme={uiTheme}
+        setUiTheme={setUiTheme}
         showCoordinates={showCoordinates}
         setShowCoordinates={setShowCoordinates}
         numberingMode={numberingMode}
@@ -764,11 +785,12 @@ export const App: React.FC = () => {
           showToast(`Loaded sample "${s.title}"`, 'success');
         }}
         onUpdateTitle={(title) => setProject((p) => ({ ...p, title }))}
+        onOpenHelp={handleOpenHelp}
       />
 
       {/* Main Workspace (3 Columns: Layer Panel | Goban Board & Toolbar | Lesson Notes) */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Column: Photoshop-like Layer Panel */}
+        {/* Left Column: Photo Editor-Style Layer Panel */}
         <div className="w-80 flex-shrink-0 hidden md:flex flex-col">
           <LayerPanel
             project={project}
@@ -827,6 +849,7 @@ export const App: React.FC = () => {
               isLocked={displayState.isLocked}
               activeSubLayerLocked={!!displayState.activeSubLayer?.locked}
               theme={boardTheme}
+              stoneTheme={stoneTheme}
               showCoordinates={showCoordinates}
               numberingMode={numberingMode}
               activeTool={activeTool}
@@ -887,6 +910,13 @@ export const App: React.FC = () => {
           <span>{toastMessage.text}</span>
         </div>
       )}
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+        initialSection={helpSection}
+      />
     </div>
   );
 };

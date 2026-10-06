@@ -101,6 +101,10 @@ export interface GobanProject {
 
 export type BoardTheme = 'kaya' | 'wood' | 'slate' | 'paper' | 'dark';
 
+export type StoneTheme = 'slate-shell' | 'glass' | 'yunzi' | 'flat' | 'classic';
+
+export type UiTheme = 'dark' | 'light' | 'cream' | 'shell' | 'slate';
+
 export type ToolType = 
   | 'stone-alt' // Alternate B and W
   | 'stone-black'

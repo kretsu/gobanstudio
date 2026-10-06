@@ -9,6 +9,7 @@ import {
   NumberingMode,
   Point,
   StoneColor,
+  StoneTheme,
   ToolType
 } from '../types/goban';
 import { DisplayStone, getNextLetterMark, getNextNumberMark } from '../engine/layerManager';
@@ -24,6 +25,7 @@ interface GobanBoardProps {
   isLocked: boolean;
   activeSubLayerLocked?: boolean;
   theme?: BoardTheme;
+  stoneTheme?: StoneTheme;
   showCoordinates?: boolean;
   numberingMode?: NumberingMode;
   activeTool: ToolType;
@@ -47,6 +49,7 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
   isLocked,
   activeSubLayerLocked = false,
   theme = 'kaya',
+  stoneTheme = 'slate-shell',
   showCoordinates = true,
   numberingMode = 'auto',
   activeTool,
@@ -351,6 +354,256 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
     return d;
   };
 
+  // Render stone graphics based on stone theme
+  const renderStoneGraphics = (
+    cx: number,
+    cy: number,
+    radius: number,
+    isBlack: boolean,
+    themeStyle: StoneTheme
+  ) => {
+    switch (themeStyle) {
+      case 'slate-shell':
+        if (isBlack) {
+          return (
+            <circle
+              cx={cx}
+              cy={cy}
+              r={radius}
+              fill="url(#slateBlackGradient)"
+              filter="url(#stoneShadowSoft)"
+              stroke="#16181b"
+              strokeWidth="0.6"
+            />
+          );
+        } else {
+          return (
+            <g>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={radius}
+                fill="url(#shellWhiteGradient)"
+                filter="url(#stoneShadowSoft)"
+                stroke="#c2b39b"
+                strokeWidth="0.75"
+              />
+              {/* Clam Shell Natural Grain Striations */}
+              <path
+                d={`M ${cx - radius * 0.72} ${cy - radius * 0.42} Q ${cx} ${cy - radius * 0.6} ${cx + radius * 0.72} ${cy - radius * 0.32}`}
+                fill="none"
+                stroke="#7e6c56"
+                strokeWidth="0.6"
+                opacity="0.16"
+                pointerEvents="none"
+              />
+              <path
+                d={`M ${cx - radius * 0.88} ${cy - radius * 0.02} Q ${cx} ${cy - radius * 0.22} ${cx + radius * 0.86} ${cy + radius * 0.08}`}
+                fill="none"
+                stroke="#7e6c56"
+                strokeWidth="0.65"
+                opacity="0.18"
+                pointerEvents="none"
+              />
+              <path
+                d={`M ${cx - radius * 0.76} ${cy + radius * 0.44} Q ${cx} ${cy + radius * 0.24} ${cx + radius * 0.74} ${cy + radius * 0.5}`}
+                fill="none"
+                stroke="#7e6c56"
+                strokeWidth="0.6"
+                opacity="0.16"
+                pointerEvents="none"
+              />
+            </g>
+          );
+        }
+      case 'glass':
+        if (isBlack) {
+          return (
+            <g>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={radius}
+                fill="url(#glassBlackGradient)"
+                filter="url(#stoneShadow)"
+                stroke="#000000"
+                strokeWidth="0.5"
+              />
+              {/* Specular curved gleam */}
+              <ellipse
+                cx={cx - radius * 0.28}
+                cy={cy - radius * 0.32}
+                rx={radius * 0.38}
+                ry={radius * 0.18}
+                transform={`rotate(-28 ${cx - radius * 0.28} ${cy - radius * 0.32})`}
+                fill="#ffffff"
+                opacity="0.28"
+                pointerEvents="none"
+              />
+              {/* Lower reflection arc */}
+              <path
+                d={`M ${cx + radius * 0.3} ${cy + radius * 0.7} A ${radius * 0.88} ${radius * 0.88} 0 0 0 ${cx + radius * 0.7} ${cy + radius * 0.3}`}
+                fill="none"
+                stroke="#93c5fd"
+                strokeWidth="1.2"
+                opacity="0.22"
+                strokeLinecap="round"
+                pointerEvents="none"
+              />
+            </g>
+          );
+        } else {
+          return (
+            <g>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={radius}
+                fill="url(#glassWhiteGradient)"
+                filter="url(#stoneShadow)"
+                stroke="#94a3b8"
+                strokeWidth="0.75"
+              />
+              {/* Specular curved gleam */}
+              <ellipse
+                cx={cx - radius * 0.28}
+                cy={cy - radius * 0.32}
+                rx={radius * 0.35}
+                ry={radius * 0.16}
+                transform={`rotate(-28 ${cx - radius * 0.28} ${cy - radius * 0.32})`}
+                fill="#ffffff"
+                opacity="0.8"
+                pointerEvents="none"
+              />
+              {/* Lower reflection arc */}
+              <path
+                d={`M ${cx + radius * 0.3} ${cy + radius * 0.7} A ${radius * 0.88} ${radius * 0.88} 0 0 0 ${cx + radius * 0.7} ${cy + radius * 0.3}`}
+                fill="none"
+                stroke="#60a5fa"
+                strokeWidth="1.2"
+                opacity="0.2"
+                strokeLinecap="round"
+                pointerEvents="none"
+              />
+            </g>
+          );
+        }
+      case 'yunzi':
+        if (isBlack) {
+          return (
+            <g>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={radius}
+                fill="url(#yunziBlackGradient)"
+                filter="url(#stoneShadowSoft)"
+                stroke="#0a0f0d"
+                strokeWidth="0.75"
+              />
+              {/* Translucent jadeite rim glow */}
+              <circle
+                cx={cx}
+                cy={cy}
+                r={radius - 1.2}
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="1.3"
+                opacity="0.32"
+                pointerEvents="none"
+              />
+            </g>
+          );
+        } else {
+          return (
+            <circle
+              cx={cx}
+              cy={cy}
+              r={radius}
+              fill="url(#yunziWhiteGradient)"
+              filter="url(#stoneShadowSoft)"
+              stroke="#b3a486"
+              strokeWidth="0.75"
+            />
+          );
+        }
+      case 'flat':
+        return (
+          <circle
+            cx={cx}
+            cy={cy}
+            r={radius}
+            fill={isBlack ? '#0f172a' : '#ffffff'}
+            stroke="#000000"
+            strokeWidth={isBlack ? '0.6' : '2'}
+          />
+        );
+      case 'classic':
+      default:
+        return (
+          <circle
+            cx={cx}
+            cy={cy}
+            r={radius}
+            fill={isBlack ? 'url(#classicBlackGradient)' : 'url(#classicWhiteGradient)'}
+            filter="url(#stoneShadow)"
+            stroke={isBlack ? '#111' : '#c5cbd3'}
+            strokeWidth={isBlack ? '0.5' : '1'}
+          />
+        );
+    }
+  };
+
+  // Render ghost hover stone
+  const renderGhostStone = (
+    cx: number,
+    cy: number,
+    radius: number,
+    isWhite: boolean,
+    themeStyle: StoneTheme
+  ) => {
+    if (themeStyle === 'flat') {
+      return (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={radius}
+          fill={isWhite ? '#ffffff' : '#0f172a'}
+          stroke="#000000"
+          strokeWidth={isWhite ? '2' : '0.6'}
+          opacity={0.45}
+        />
+      );
+    }
+    const fillUrl = isWhite
+      ? themeStyle === 'slate-shell'
+        ? 'url(#shellWhiteGradient)'
+        : themeStyle === 'glass'
+        ? 'url(#glassWhiteGradient)'
+        : themeStyle === 'yunzi'
+        ? 'url(#yunziWhiteGradient)'
+        : 'url(#classicWhiteGradient)'
+      : themeStyle === 'slate-shell'
+      ? 'url(#slateBlackGradient)'
+      : themeStyle === 'glass'
+      ? 'url(#glassBlackGradient)'
+      : themeStyle === 'yunzi'
+      ? 'url(#yunziBlackGradient)'
+      : 'url(#classicBlackGradient)';
+
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill={fillUrl}
+        opacity={0.5}
+        stroke={isWhite ? '#cbd5e1' : '#334155'}
+        strokeWidth="0.8"
+      />
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -369,25 +622,68 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
         onMouseLeave={handleMouseLeave}
       >
         <defs>
-          {/* Obsidian Black Stone Radial Gradient */}
-          <radialGradient id="blackStoneGradient" cx="35%" cy="30%" r="70%">
+          {/* Classic Stone Gradients */}
+          <radialGradient id="classicBlackGradient" cx="35%" cy="30%" r="70%">
             <stop offset="0%" stopColor="#4a4d52" />
             <stop offset="25%" stopColor="#282a2d" />
             <stop offset="70%" stopColor="#141517" />
             <stop offset="100%" stopColor="#080809" />
           </radialGradient>
-
-          {/* Pearl White Stone Radial Gradient */}
-          <radialGradient id="whiteStoneGradient" cx="35%" cy="30%" r="70%">
+          <radialGradient id="classicWhiteGradient" cx="35%" cy="30%" r="70%">
             <stop offset="0%" stopColor="#ffffff" />
             <stop offset="60%" stopColor="#f1f3f5" />
             <stop offset="85%" stopColor="#d5d9de" />
             <stop offset="100%" stopColor="#b0b6be" />
           </radialGradient>
 
-          {/* Stone Drop Shadow */}
+          {/* Slate & Shell Gradients */}
+          <radialGradient id="slateBlackGradient" cx="35%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#383d45" />
+            <stop offset="35%" stopColor="#202327" />
+            <stop offset="75%" stopColor="#111315" />
+            <stop offset="100%" stopColor="#08090a" />
+          </radialGradient>
+          <radialGradient id="shellWhiteGradient" cx="35%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="45%" stopColor="#fbf7ed" />
+            <stop offset="80%" stopColor="#ece2ce" />
+            <stop offset="100%" stopColor="#d5c5ad" />
+          </radialGradient>
+
+          {/* Glass Stone Gradients */}
+          <radialGradient id="glassBlackGradient" cx="35%" cy="28%" r="70%">
+            <stop offset="0%" stopColor="#585e68" />
+            <stop offset="25%" stopColor="#22252a" />
+            <stop offset="70%" stopColor="#0a0b0d" />
+            <stop offset="100%" stopColor="#000000" />
+          </radialGradient>
+          <radialGradient id="glassWhiteGradient" cx="32%" cy="28%" r="70%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="40%" stopColor="#f1f7fc" />
+            <stop offset="80%" stopColor="#cfe0ee" />
+            <stop offset="100%" stopColor="#a3bbd1" />
+          </radialGradient>
+
+          {/* Yunzi Stone Gradients */}
+          <radialGradient id="yunziBlackGradient" cx="35%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#2a3831" />
+            <stop offset="40%" stopColor="#16221d" />
+            <stop offset="80%" stopColor="#0a120e" />
+            <stop offset="100%" stopColor="#060908" />
+          </radialGradient>
+          <radialGradient id="yunziWhiteGradient" cx="35%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#fffdf8" />
+            <stop offset="45%" stopColor="#ede6d3" />
+            <stop offset="80%" stopColor="#ded3b9" />
+            <stop offset="100%" stopColor="#c5b697" />
+          </radialGradient>
+
+          {/* Stone Drop Shadows */}
           <filter id="stoneShadow" x="-30%" y="-30%" width="160%" height="160%">
             <feDropShadow dx="3" dy="4" stdDeviation="3.5" floodColor="#000000" floodOpacity="0.45" />
+          </filter>
+          <filter id="stoneShadowSoft" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="2" dy="3" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.35" />
           </filter>
 
           {/* Arrowhead marker definition */}
@@ -484,16 +780,8 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
 
             return (
               <g key={`stone_${stone.x}_${stone.y}`}>
-                {/* 3D Rendered Stone with Drop Shadow */}
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={stoneRadius}
-                  fill={isBlack ? 'url(#blackStoneGradient)' : 'url(#whiteStoneGradient)'}
-                  filter="url(#stoneShadow)"
-                  stroke={isBlack ? '#111' : '#c5cbd3'}
-                  strokeWidth={isBlack ? '0.5' : '1'}
-                />
+                {/* Rendered Stone according to stoneTheme */}
+                {renderStoneGraphics(cx, cy, stoneRadius, isBlack, stoneTheme)}
 
                 {/* Last Move Ring Indicator */}
                 {stone.isLastMove && (
@@ -514,7 +802,7 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
                     y={cy + 1}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill={isBlack ? '#ffffff' : '#0f172a'}
+                    fill={isBlack ? '#ffffff' : stoneTheme === 'flat' ? '#000000' : '#0f172a'}
                     fontSize={stone.number > 99 ? `${cellSize * 0.36}px` : `${cellSize * 0.44}px`}
                     fontWeight="700"
                     fontFamily="system-ui, -apple-system, sans-serif"
@@ -768,13 +1056,13 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
         {/* Hover Ghost Stone Preview */}
         {hoverPoint && !isDrawing && activeTool.startsWith('stone-') && activeTool !== 'stone-remove' && !stoneMap.has(`${hoverPoint.x},${hoverPoint.y}`) && (
           <g style={{ pointerEvents: 'none' }}>
-            <circle
-              cx={getSvgCoords(hoverPoint).cx}
-              cy={getSvgCoords(hoverPoint).cy}
-              r={stoneRadius}
-              fill={activeTool === 'stone-white' ? '#ffffff' : activeTool === 'stone-black' ? '#111111' : '#222222'}
-              opacity={0.45}
-            />
+            {renderGhostStone(
+              getSvgCoords(hoverPoint).cx,
+              getSvgCoords(hoverPoint).cy,
+              stoneRadius,
+              activeTool === 'stone-white' || (activeTool === 'stone-alt' && stones.length % 2 === 1),
+              stoneTheme
+            )}
           </g>
         )}
       </svg>

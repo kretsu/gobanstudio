@@ -282,7 +282,16 @@ export function importSgfToProject(sgfText: string, filename?: string): GobanPro
     while (vCurr) {
       const nodeName = vCurr.props.get('N')?.[0];
       if (nodeName && !explicitName) {
-        explicitName = nodeName;
+        const rawName = nodeName.trim();
+        const newlineIdx = rawName.indexOf('\n');
+        if (newlineIdx !== -1) {
+          const namePart = rawName.substring(0, newlineIdx).trim();
+          const descPart = rawName.substring(newlineIdx + 1).trim();
+          if (namePart) explicitName = namePart;
+          if (descPart) varDesc += (varDesc ? '\n' : '') + descPart;
+        } else {
+          explicitName = rawName;
+        }
       }
 
       const comment = vCurr.props.get('C')?.[0];

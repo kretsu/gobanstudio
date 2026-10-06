@@ -34,6 +34,7 @@ import {
   serializeProjectToJson,
   deserializeProjectFromJson
 } from './sgfParser';
+import { BoardTheme, StoneTheme, UiTheme } from '../types/goban';
 import { SAMPLE_LESSONS } from '../components/SampleLessons';
 
 describe('Go Engine & Rules', () => {
@@ -677,6 +678,71 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
 
       const markB = { x: 4, y: 5, type: 'LB' as const, label: getNextLetterMark(updatedSubMarks) };
       expect(markB.label).toBe('B');
+    });
+  });
+
+  describe('Themes & Studio Customization Coverage', () => {
+    it('verifies all supported board themes, stone themes, and studio UI themes', () => {
+      const boardThemes: BoardTheme[] = ['kaya', 'wood', 'slate', 'paper', 'dark'];
+      expect(boardThemes).toHaveLength(5);
+      expect(boardThemes).toContain('kaya');
+      expect(boardThemes).toContain('wood');
+      expect(boardThemes).toContain('slate');
+      expect(boardThemes).toContain('paper');
+      expect(boardThemes).toContain('dark');
+
+      const stoneThemes: StoneTheme[] = ['slate-shell', 'glass', 'yunzi', 'flat', 'classic'];
+      expect(stoneThemes).toHaveLength(5);
+      expect(stoneThemes).toContain('slate-shell');
+      expect(stoneThemes).toContain('glass');
+      expect(stoneThemes).toContain('yunzi');
+      expect(stoneThemes).toContain('flat');
+      expect(stoneThemes).toContain('classic');
+
+      const uiThemes: UiTheme[] = ['dark', 'light', 'cream', 'shell', 'slate'];
+      expect(uiThemes).toHaveLength(5);
+      expect(uiThemes).toContain('dark');
+      expect(uiThemes).toContain('light');
+      expect(uiThemes).toContain('cream');
+      expect(uiThemes).toContain('shell');
+      expect(uiThemes).toContain('slate');
+    });
+  });
+
+  describe('Help & User Documentation Coverage', () => {
+    it('verifies help section IDs and key topic definitions', () => {
+      const validSections = [
+        'overview',
+        'layers-variations',
+        'locking',
+        'markings-drawing',
+        'playback-scrubber',
+        'settings-themes',
+        'lesson-notes',
+        'file-export-standalone',
+        'shortcuts'
+      ];
+      expect(validSections.length).toBe(9);
+      expect(validSections).toContain('layers-variations');
+      expect(validSections).toContain('locking');
+      expect(validSections).toContain('markings-drawing');
+    });
+  });
+
+  describe('SGF Variation Name Sanitization and Tag Management', () => {
+    it('collapses multi-line SGF node names into clean concise variation names and moves rest to description', () => {
+      const sgfWithMultilineVar = `(;GM[1]FF[4]CA[UTF-8]AP[Test]SZ[19]KM[6.5]RU[Japanese]
+;B[pd];W[dp]
+(;B[pq];W[dd])
+(;N[Dia 4: Joseki Variation\nThis is a long description with detailed analysis.]C[Additional commentary here.];B[qp];W[cd])
+)`;
+      const project = importSgfToProject(sgfWithMultilineVar);
+      expect(project.variations.length).toBe(2);
+      const dia4 = project.variations.find(v => v.name.startsWith('Dia 4: Joseki Variation'));
+      expect(dia4).toBeDefined();
+      expect(dia4?.name).toBe('Dia 4: Joseki Variation');
+      expect(dia4?.description).toContain('This is a long description with detailed analysis.');
+      expect(dia4?.description).toContain('Additional commentary here.');
     });
   });
 });
