@@ -17,6 +17,7 @@ import {
   createNewProject,
   deleteVariation,
   duplicateVariation,
+  getActiveLayerMarkings,
   getVariationAncestorChain,
   recordDrawing,
   recordMarking,
@@ -257,8 +258,12 @@ export const App: React.FC = () => {
   }, [project, activeVariationId, activeSubLayerId, showToast]);
 
   // Markings Handlers
+  const activeLayerMarkings = useMemo(() => {
+    return getActiveLayerMarkings(project, activeVariationId, activeSubLayerId);
+  }, [project, activeVariationId, activeSubLayerId]);
+
   const handleAddMarking = useCallback((marking: BoardMarking) => {
-    const result = recordMarking(project, activeVariationId, marking);
+    const result = recordMarking(project, activeVariationId, marking, activeSubLayerId);
 
     if (result.error) {
       showToast(result.error, 'warning');
@@ -273,7 +278,7 @@ export const App: React.FC = () => {
       const newSub = subs?.find(s => s.id === result.newSubLayerId);
       showToast(`Created subvariation "${newSub?.name || 'Markings'}"`, 'info');
     }
-  }, [project, activeVariationId, showToast]);
+  }, [project, activeVariationId, activeSubLayerId, showToast]);
 
   const handleRemoveMarking = useCallback((point: Point) => {
     const isRoot = activeVariationId === 'root';
@@ -817,6 +822,7 @@ export const App: React.FC = () => {
               boardSize={project.boardSize}
               stones={displayState.stones}
               markings={displayState.markings}
+              activeLayerMarkings={activeLayerMarkings}
               drawings={displayState.drawings}
               isLocked={displayState.isLocked}
               activeSubLayerLocked={!!displayState.activeSubLayer?.locked}

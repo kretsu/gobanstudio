@@ -18,6 +18,9 @@ import {
   recordDrawing,
   recordMove,
   recordMarking,
+  getNextLetterMark,
+  getNextNumberMark,
+  getActiveLayerMarkings,
   toggleSubLayerOutdated,
   markSubLayersOutdated,
   toggleVariationOutdated,
@@ -570,5 +573,110 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
     expect(sample.title).toBe('3-4 One-Space High Approach The One-Space Pincer');
     expect(sample.project.root.moves.length).toBe(3);
     expect(sample.project.variations.length).toBeGreaterThan(0);
+  });
+
+  describe('Letter and Number Markings per layer', () => {
+    it('generates sequential letter marks from A to Z independently per layer', () => {
+      let project = createNewProject(19, 'Markings Test');
+
+      // Add letter marks to root
+      const markA = { x: 3, y: 3, type: 'LB' as const, label: getNextLetterMark(getActiveLayerMarkings(project, 'root')) };
+      expect(markA.label).toBe('A');
+      project = recordMarking(project, 'root', markA).project;
+
+      const markB = { x: 3, y: 4, type: 'LB' as const, label: getNextLetterMark(getActiveLayerMarkings(project, 'root')) };
+      expect(markB.label).toBe('B');
+      project = recordMarking(project, 'root', markB).project;
+
+      const markC = { x: 3, y: 5, type: 'LB' as const, label: getNextLetterMark(getActiveLayerMarkings(project, 'root')) };
+      expect(markC.label).toBe('C');
+      project = recordMarking(project, 'root', markC).project;
+
+      // Add a variation - its layer markings start from 'A' again
+      const { project: pVar, newVariationId: varId } = addVariation(project, 'Variation 1', [], 0, 'root');
+      project = pVar;
+
+      const varMarkA = { x: 10, y: 10, type: 'LB' as const, label: getNextLetterMark(getActiveLayerMarkings(project, varId)) };
+      expect(varMarkA.label).toBe('A');
+      project = recordMarking(project, varId, varMarkA).project;
+
+      const varMarkB = { x: 10, y: 11, type: 'LB' as const, label: getNextLetterMark(getActiveLayerMarkings(project, varId)) };
+      expect(varMarkB.label).toBe('B');
+      project = recordMarking(project, varId, varMarkB).project;
+
+      // Check root markings are intact (A, B, C)
+      expect(project.root.markings?.map(m => m.label)).toEqual(['A', 'B', 'C']);
+      // Check variation markings are (A, B)
+      const v = project.variations.find(v => v.id === varId);
+      expect(v?.markings?.map(m => m.label)).toEqual(['A', 'B']);
+    });
+
+    it('generates sequential number marks from 1 to N independently per layer', () => {
+      let project = createNewProject(19, 'Number Marks Test');
+
+      // Add number marks 1..3 to root
+      const mark1 = { x: 2, y: 2, type: 'LB' as const, label: getNextNumberMark(getActiveLayerMarkings(project, 'root')) };
+      expect(mark1.label).toBe('1');
+      project = recordMarking(project, 'root', mark1).project;
+
+      const mark2 = { x: 2, y: 3, type: 'LB' as const, label: getNextNumberMark(getActiveLayerMarkings(project, 'root')) };
+      expect(mark2.label).toBe('2');
+      project = recordMarking(project, 'root', mark2).project;
+
+      const mark3 = { x: 2, y: 4, type: 'LB' as const, label: getNextNumberMark(getActiveLayerMarkings(project, 'root')) };
+      expect(mark3.label).toBe('3');
+      project = recordMarking(project, 'root', mark3).project;
+
+      expect(project.root.markings?.map(m => m.label)).toEqual(['1', '2', '3']);
+
+      // Add variation and number marks to it
+      const { project: pVar, newVariationId: varId } = addVariation(project, 'Var Number Test', [], 0, 'root');
+      project = pVar;
+
+      const vMark1 = { x: 5, y: 5, type: 'LB' as const, label: getNextNumberMark(getActiveLayerMarkings(project, varId)) };
+      expect(vMark1.label).toBe('1');
+      project = recordMarking(project, varId, vMark1).project;
+
+      const vMark2 = { x: 5, y: 6, type: 'LB' as const, label: getNextNumberMark(getActiveLayerMarkings(project, varId)) };
+      expect(vMark2.label).toBe('2');
+      project = recordMarking(project, varId, vMark2).project;
+
+      const v = project.variations.find(item => item.id === varId);
+      expect(v?.markings?.map(m => m.label)).toEqual(['1', '2']);
+    });
+
+    it('reuses available letter / number slot when existing mark is removed or skipped', () => {
+      const markings = [
+        { x: 0, y: 0, type: 'LB' as const, label: 'A' },
+        { x: 0, y: 1, type: 'LB' as const, label: 'C' }
+      ];
+      expect(getNextLetterMark(markings)).toBe('B');
+
+      const numMarkings = [
+        { x: 0, y: 0, type: 'LB' as const, label: '1' },
+        { x: 0, y: 1, type: 'LB' as const, label: '3' }
+      ];
+      expect(getNextNumberMark(numMarkings)).toBe('2');
+    });
+
+    it('correctly handles letter and number marks on sublayers', () => {
+      let project = createNewProject(19, 'Sublayer Marks Test');
+      const { project: pSub, newSubLayerId: subId } = addSubLayer(project, 'root', 'drawing');
+      project = pSub;
+
+      const subMarks = getActiveLayerMarkings(project, 'root', subId);
+      const markA = { x: 4, y: 4, type: 'LB' as const, label: getNextLetterMark(subMarks) };
+      expect(markA.label).toBe('A');
+
+      const res = recordMarking(project, 'root', markA, subId);
+      project = res.project;
+
+      const updatedSubMarks = getActiveLayerMarkings(project, 'root', subId);
+      expect(updatedSubMarks.length).toBe(1);
+      expect(updatedSubMarks[0].label).toBe('A');
+
+      const markB = { x: 4, y: 5, type: 'LB' as const, label: getNextLetterMark(updatedSubMarks) };
+      expect(markB.label).toBe('B');
+    });
   });
 });

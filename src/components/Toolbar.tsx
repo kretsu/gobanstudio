@@ -6,6 +6,7 @@ import {
   Triangle,
   X,
   Type,
+  Hash,
   Pen,
   MoveRight,
   Minus,
@@ -171,9 +172,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className={`p-1.5 rounded-lg transition-all ${
               activeTool === 'mark-label' ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Letter Label (LB)"
+            title="Letter Label (A..Z)"
           >
             <Type className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setActiveTool('mark-number')}
+            className={`p-1.5 rounded-lg transition-all ${
+              activeTool === 'mark-number' ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:bg-slate-800'
+            }`}
+            title="Number Label (1..N)"
+          >
+            <Hash className="w-4 h-4" />
           </button>
         </div>
 

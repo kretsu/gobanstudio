@@ -667,6 +667,58 @@ export function recordDrawing(
   return { project: updatedProject, newSubLayerId: newSubId, isNewSubLayer: true };
 }
 
+export function getNextLetterMark(existingMarkings: BoardMarking[] = []): string {
+  const usedLetters = new Set(
+    existingMarkings
+      .filter(m => m.type === 'LB' && m.label && /^[A-Z]$/.test(m.label))
+      .map(m => m.label!)
+  );
+
+  for (let i = 0; i < 26; i++) {
+    const char = String.fromCharCode(65 + i);
+    if (!usedLetters.has(char)) {
+      return char;
+    }
+  }
+  return 'Z';
+}
+
+export function getNextNumberMark(existingMarkings: BoardMarking[] = []): string {
+  const usedNumbers = new Set(
+    existingMarkings
+      .filter(m => m.type === 'LB' && m.label && /^\d+$/.test(m.label))
+      .map(m => parseInt(m.label!, 10))
+  );
+
+  let n = 1;
+  while (usedNumbers.has(n)) {
+    n++;
+  }
+  return String(n);
+}
+
+export function getActiveLayerMarkings(
+  project: GobanProject,
+  activeVariationId: string = 'root',
+  activeSubLayerId: string | null = null
+): BoardMarking[] {
+  const isRoot = activeVariationId === 'root';
+  const parent = isRoot ? project.root : project.variations.find(v => v.id === activeVariationId);
+  if (!parent) return [];
+
+  if (activeSubLayerId) {
+    const activeSub = (parent.subLayers || []).find(s => s.id === activeSubLayerId);
+    if (activeSub) {
+      if (activeSub.locked) return [];
+      return activeSub.markings || [];
+    }
+  }
+
+  if (parent.locked) return [];
+
+  return parent.markings || [];
+}
+
 export function recordMarking(
   project: GobanProject,
   activeVariationId: string,
@@ -680,6 +732,14 @@ export function recordMarking(
   const activeSubId = activeSubLayerIdOverride !== undefined ? activeSubLayerIdOverride : project.activeSubLayerId;
   const activeSub = activeSubId ? (parent.subLayers || []).find(s => s.id === activeSubId) : null;
 
+  let effectiveMarking = marking;
+  if (effectiveMarking.type === 'LB' && effectiveMarking.label === undefined) {
+    const currentLayerMarks = activeSub && !activeSub.locked
+      ? (activeSub.markings || [])
+      : (!parent.locked ? (parent.markings || []) : []);
+    effectiveMarking = { ...effectiveMarking, label: getNextLetterMark(currentLayerMarks) };
+  }
+
   if (activeSub && !activeSub.locked) {
     const currentMarks = activeSub.markings || [];
     const updatedSubLayers = (parent.subLayers || []).map(s =>
@@ -687,7 +747,7 @@ export function recordMarking(
         ? {
             ...s,
             visible: true,
-            markings: [...currentMarks.filter(m => !(m.x === marking.x && m.y === marking.y)), marking]
+            markings: [...currentMarks.filter(m => !(m.x === effectiveMarking.x && m.y === effectiveMarking.y)), effectiveMarking]
           }
         : s
     );
@@ -724,7 +784,7 @@ export function recordMarking(
       visible: true,
       defaultVisible: false,
       outdated: false,
-      markings: [marking],
+      markings: [effectiveMarking],
       moves: [],
       initialStones: [],
       drawings: []
@@ -769,7 +829,7 @@ export function recordMarking(
       ...project,
       root: {
         ...project.root,
-        markings: [...marks.filter(m => !(m.x === marking.x && m.y === marking.y)), marking],
+        markings: [...marks.filter(m => !(m.x === effectiveMarking.x && m.y === effectiveMarking.y)), effectiveMarking],
         subLayers: updatedSubs
       },
       variations: updatedVars
@@ -784,7 +844,7 @@ export function recordMarking(
           const updatedSubs = (v.subLayers || []).map(s => ({ ...s, outdated: true }));
           return {
             ...v,
-            markings: [...marks.filter(m => !(m.x === marking.x && m.y === marking.y)), marking],
+            markings: [...marks.filter(m => !(m.x === effectiveMarking.x && m.y === effectiveMarking.y)), effectiveMarking],
             subLayers: updatedSubs
           };
         }

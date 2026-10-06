@@ -11,7 +11,7 @@ import {
   StoneColor,
   ToolType
 } from '../types/goban';
-import { DisplayStone } from '../engine/layerManager';
+import { DisplayStone, getNextLetterMark, getNextNumberMark } from '../engine/layerManager';
 import { getStarPoints, getXCoordinateLabel, getYCoordinateLabel } from '../engine/goRules';
 import { playStoneSound } from '../engine/soundEffects';
 
@@ -19,6 +19,7 @@ interface GobanBoardProps {
   boardSize: number;
   stones: DisplayStone[];
   markings: BoardMarking[];
+  activeLayerMarkings?: BoardMarking[];
   drawings: DrawingPath[];
   isLocked: boolean;
   activeSubLayerLocked?: boolean;
@@ -41,6 +42,7 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
   boardSize,
   stones,
   markings,
+  activeLayerMarkings,
   drawings,
   isLocked,
   activeSubLayerLocked = false,
@@ -301,19 +303,27 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
         onRemoveMarking?.(pt);
       } else {
         let type: MarkingType = 'TR';
+        let label: string | undefined = undefined;
+        const currentLayerMarks = activeLayerMarkings || markings;
+
         if (activeTool === 'mark-triangle') type = 'TR';
         else if (activeTool === 'mark-square') type = 'SQ';
         else if (activeTool === 'mark-circle') type = 'CR';
         else if (activeTool === 'mark-cross') type = 'MA';
-        else if (activeTool === 'mark-label') type = 'LB';
-        else if (activeTool === 'mark-territory-black') type = 'TB';
+        else if (activeTool === 'mark-label') {
+          type = 'LB';
+          label = getNextLetterMark(currentLayerMarks);
+        } else if (activeTool === 'mark-number') {
+          type = 'LB';
+          label = getNextNumberMark(currentLayerMarks);
+        } else if (activeTool === 'mark-territory-black') type = 'TB';
         else if (activeTool === 'mark-territory-white') type = 'TW';
 
         onAddMarking?.({
           x: pt.x,
           y: pt.y,
           type,
-          label: type === 'LB' ? 'A' : undefined
+          label
         });
       }
     }
@@ -581,6 +591,15 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
                   </g>
                 );
               case 'LB': // Label
+                const labelText = mark.label || 'A';
+                const labelLen = labelText.length;
+                const fontSize =
+                  labelLen > 2
+                    ? `${cellSize * 0.32}px`
+                    : labelLen > 1
+                    ? `${cellSize * 0.38}px`
+                    : `${cellSize * 0.46}px`;
+
                 return (
                   <g key={`mark_lb_${idx}`}>
                     {!stoneAtPoint && (
@@ -592,10 +611,10 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fill={stoneAtPoint ? (stoneAtPoint.color === 'B' ? '#fff' : '#000') : '#0f172a'}
-                      fontSize={`${cellSize * 0.46}px`}
+                      fontSize={fontSize}
                       fontWeight="bold"
                     >
-                      {mark.label || 'A'}
+                      {labelText}
                     </text>
                   </g>
                 );

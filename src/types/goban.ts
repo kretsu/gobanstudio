@@ -111,6 +111,7 @@ export type ToolType =
   | 'mark-circle'
   | 'mark-cross'
   | 'mark-label'
+  | 'mark-number'
   | 'mark-territory-black'
   | 'mark-territory-white'
   | 'draw-pen'
