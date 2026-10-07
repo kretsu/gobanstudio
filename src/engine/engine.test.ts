@@ -745,4 +745,28 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
       expect(dia4?.description).toContain('Additional commentary here.');
     });
   });
+
+  describe('Engine Modular Architecture and Barrel Exports', () => {
+    it('exports all core utilities correctly from modular sub-files and index barrel', async () => {
+      const index = await import('./index');
+      expect(index.createNewProject).toBeDefined();
+      expect(index.computeDisplayState).toBeDefined();
+      expect(index.getVariationAncestorChain).toBeDefined();
+      expect(index.getDescendantVariationIds).toBeDefined();
+      expect(index.getNextLetterMark).toBeDefined();
+      expect(index.getNextNumberMark).toBeDefined();
+      expect(index.parseSgfText).toBeDefined();
+      expect(index.importSgfToProject).toBeDefined();
+      expect(index.exportProjectToSgf).toBeDefined();
+      expect(index.serializeProjectToJson).toBeDefined();
+      expect(index.deserializeProjectFromJson).toBeDefined();
+      expect(index.getStarPoints).toBeDefined();
+      expect(index.playStoneSound).toBeDefined();
+
+      const proj = index.createNewProject(19, 'Modular Test');
+      expect(proj.title).toBe('Modular Test');
+      const state = index.computeDisplayState(proj, 'root');
+      expect(state.grid.length).toBe(19);
+    });
+  });
 });
