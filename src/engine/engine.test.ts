@@ -769,4 +769,78 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
       expect(state.grid.length).toBe(19);
     });
   });
+
+  describe('Move Placement Validation and Board Occupancy', () => {
+    it('rejects placing a stone on an already occupied intersection and preserves stone move numbers', () => {
+      let project = createNewProject(19, 'Occupancy Test');
+      
+      // Place first stone at (3, 3)
+      const res1 = recordMove(project, 'root', { x: 3, y: 3 }, 'B', 0);
+      expect(res1.error).toBeUndefined();
+      project = res1.project;
+      expect(project.root.moves.length).toBe(1);
+
+      // Place second stone at (15, 15)
+      const res2 = recordMove(project, 'root', { x: 15, y: 15 }, 'W', 1);
+      expect(res2.error).toBeUndefined();
+      project = res2.project;
+      expect(project.root.moves.length).toBe(2);
+
+      // Verify initial stone numbers
+      let disp = computeDisplayState(project, 'root');
+      expect(disp.stones.find(s => s.x === 3 && s.y === 3)?.number).toBe(1);
+      expect(disp.stones.find(s => s.x === 15 && s.y === 15)?.number).toBe(2);
+
+      // Attempt to place a stone on (3, 3) which is already occupied
+      const resOccupied = recordMove(project, 'root', { x: 3, y: 3 }, 'B', 2);
+      expect(resOccupied.error).toBe('Intersection is already occupied');
+      expect(resOccupied.project.root.moves.length).toBe(2);
+
+      // Verify that stone numbers and move list were NOT modified
+      disp = computeDisplayState(project, 'root');
+      expect(disp.stones.find(s => s.x === 3 && s.y === 3)?.number).toBe(1);
+      expect(disp.stones.find(s => s.x === 15 && s.y === 15)?.number).toBe(2);
+      expect(disp.totalSteps).toBe(2);
+    });
+
+    it('rejects placing a stone on an occupied intersection even if the layer is locked', () => {
+      let project = createNewProject(19, 'Locked Occupancy Test');
+      const res1 = recordMove(project, 'root', { x: 3, y: 3 }, 'B', 0);
+      project = res1.project;
+      project.root.locked = true;
+
+      // Attempt to place stone on already occupied (3, 3) on locked root
+      const resOccupied = recordMove(project, 'root', { x: 3, y: 3 }, 'W', 1);
+      expect(resOccupied.error).toBe('Intersection is already occupied');
+      expect(resOccupied.isNewVariation).toBe(false);
+      expect(project.variations.length).toBe(0);
+    });
+
+    it('rejects placing a stone on an occupied intersection within a variation', () => {
+      let project = createNewProject(19, 'Variation Occupancy Test');
+      const res1 = recordMove(project, 'root', { x: 3, y: 3 }, 'B', 0);
+      project = res1.project;
+
+      const { project: pWithVar, newVariationId } = addVariation(project, 'Var 1', [], 1, 'root');
+      project = pWithVar;
+
+      const resVarMove = recordMove(project, newVariationId, { x: 15, y: 3 }, 'W', 0);
+      expect(resVarMove.error).toBeUndefined();
+      project = resVarMove.project;
+
+      // Attempt to play on (3, 3) which is occupied by root stone
+      const resOccRoot = recordMove(project, newVariationId, { x: 3, y: 3 }, 'B', 1);
+      expect(resOccRoot.error).toBe('Intersection is already occupied');
+
+      // Attempt to play on (15, 3) which is occupied by variation move 1
+      const resOccVar = recordMove(project, newVariationId, { x: 15, y: 3 }, 'B', 1);
+      expect(resOccVar.error).toBe('Intersection is already occupied');
+    });
+
+    it('rejects coordinates that are out of board bounds', () => {
+      const project = createNewProject(19, 'Bounds Test');
+      const resOutOfBounds = recordMove(project, 'root', { x: 19, y: 5 }, 'B', 0);
+      expect(resOutOfBounds.error).toBe('Coordinates out of bounds');
+    });
+  });
 });

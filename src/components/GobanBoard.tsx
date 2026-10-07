@@ -284,15 +284,16 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
     if (!pt) return;
 
     if (activeTool === 'stone-alt' || activeTool === 'stone-black' || activeTool === 'stone-white') {
+      const isOccupied = stoneMap.has(`${pt.x},${pt.y}`);
       if (activeTool === 'stone-alt') {
         onPlaceStone?.(pt);
-        if (soundEnabled) playStoneSound();
+        if (soundEnabled && !isOccupied) playStoneSound();
       } else if (activeTool === 'stone-black') {
         onPlaceStone?.(pt, 'B');
-        if (soundEnabled) playStoneSound();
+        if (soundEnabled && !isOccupied) playStoneSound();
       } else if (activeTool === 'stone-white') {
         onPlaceStone?.(pt, 'W');
-        if (soundEnabled) playStoneSound();
+        if (soundEnabled && !isOccupied) playStoneSound();
       }
     } else if (activeTool === 'stone-remove') {
       if (isLocked || activeSubLayerLocked) {

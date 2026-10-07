@@ -7,6 +7,7 @@ import {
   SubLayer,
   VariationLayer
 } from '../types/goban';
+import { computeDisplayState } from './displayState';
 import { getNextLetterMark } from './markings';
 import { getDescendantVariationIds } from './variationTree';
 
@@ -143,6 +144,16 @@ export function recordMove(
   const isRoot = activeVariationId === 'root';
   const parent = isRoot ? project.root : project.variations.find(v => v.id === activeVariationId);
   if (!parent) return { project, isNewVariation: false, error: 'Parent layer not found' };
+
+  if (point.x < 0 || point.x >= project.boardSize || point.y < 0 || point.y >= project.boardSize) {
+    return { project, isNewVariation: false, error: 'Coordinates out of bounds' };
+  }
+
+  // Validate that the intersection is not already occupied by an existing stone
+  const displayState = computeDisplayState(project, activeVariationId, currentStep);
+  if (displayState.grid[point.y]?.[point.x] !== null) {
+    return { project, isNewVariation: false, error: 'Intersection is already occupied' };
+  }
 
   // If the parent variation (or root) is locked:
   // Auto-branch into a new child variation in the tree hierarchy!
