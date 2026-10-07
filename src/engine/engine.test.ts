@@ -847,7 +847,7 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
   describe('Components Modular Architecture and Exports', () => {
     it('exports all core UI components, subcomponents, and sections from components barrel', async () => {
       const components = await import('../components/index');
-      expect(components.GobanBoard).toBeDefined();
+      expect(components.Goban).toBeDefined();
       expect(components.LayerPanel).toBeDefined();
       expect(components.Header).toBeDefined();
       expect(components.Toolbar).toBeDefined();

@@ -23,7 +23,7 @@ gobanstudio/
 ├── dist/                      # Production build output
 ├── src/
 │   ├── components/            # UI Components
-│   │   ├── GobanBoard.tsx     # Canvas Go board rendering (stones, marks, drawings, ghost previews)
+│   │   ├── Goban.tsx          # Canvas Go board rendering (stones, marks, drawings, ghost previews)
 │   │   ├── LayerPanel.tsx     # Photo editor-style tree hierarchy manager
 │   │   ├── LessonNotes.tsx    # Rich lesson notes and teaching point editor
 │   │   ├── SampleLessons.ts   # Pre-configured teaching scenarios (Joseki, Tsumego)
