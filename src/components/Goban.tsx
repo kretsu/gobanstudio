@@ -25,7 +25,7 @@ import {
   BoardLockBadge
 } from './board/index';
 
-export interface GobanBoardProps {
+export interface GobanProps {
   boardSize: number;
   stones: DisplayStone[];
   markings: BoardMarking[];
@@ -49,7 +49,7 @@ export interface GobanBoardProps {
   onLockedActionAttempt?: () => void;
 }
 
-export const GobanBoard: React.FC<GobanBoardProps> = ({
+export const Goban: React.FC<GobanProps> = ({
   boardSize,
   stones,
   markings,

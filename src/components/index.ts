@@ -1,5 +1,5 @@
-export { GobanBoard } from './GobanBoard';
-export type { GobanBoardProps } from './GobanBoard';
+export { Goban } from './Goban';
+export type { GobanProps } from './Goban';
 
 export { LayerPanel } from './LayerPanel';
 export type { LayerPanelProps } from './LayerPanel';

@@ -32,7 +32,7 @@ import {
   serializeProjectToJson
 } from './engine/sgfParser';
 import {SAMPLE_LESSONS} from './components/SampleLessons';
-import {GobanBoard} from './components/GobanBoard';
+import {Goban} from './components/Goban';
 import {LayerPanel} from './components/LayerPanel';
 import {Toolbar} from './components/Toolbar';
 import {Header} from './components/Header';
@@ -840,7 +840,7 @@ export const App: React.FC = () => {
 
           {/* Centered Board Container */}
           <div className="flex-1 flex items-center justify-center p-4 min-h-0 overflow-auto">
-            <GobanBoard
+            <Goban
               boardSize={project.boardSize}
               stones={displayState.stones}
               markings={displayState.markings}
