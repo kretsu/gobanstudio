@@ -4,7 +4,6 @@ import {
   BoardTheme,
   DrawingPath,
   DrawingPoint,
-  GoMove,
   MarkingType,
   NumberingMode,
   Point,
@@ -13,10 +12,20 @@ import {
   ToolType
 } from '../types/goban';
 import { DisplayStone, getNextLetterMark, getNextNumberMark } from '../engine/layerManager';
-import { getStarPoints, getXCoordinateLabel, getYCoordinateLabel } from '../engine/goRules';
+import { getStarPoints } from '../engine/goRules';
 import { playStoneSound } from '../engine/soundEffects';
+import {
+  BoardDefs,
+  BoardCoordinates,
+  BoardGridLines,
+  StoneRenderer,
+  GhostStoneRenderer,
+  MarkingRenderer,
+  DrawingRenderer,
+  BoardLockBadge
+} from './board/index';
 
-interface GobanBoardProps {
+export interface GobanBoardProps {
   boardSize: number;
   stones: DisplayStone[];
   markings: BoardMarking[];
@@ -76,6 +85,7 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
   const boardDimension = 800; // viewBox size
   const gridWidth = boardDimension - margin * 2;
   const cellSize = gridWidth / (boardSize - 1);
+  const stoneRadius = cellSize * 0.485;
 
   // Convert board grid point (0..size-1) to SVG coordinates
   const getSvgCoords = useCallback((p: Point) => {
@@ -120,7 +130,6 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
     };
   }, []);
 
-  const stoneRadius = cellSize * 0.485;
   const starPoints = useMemo(() => getStarPoints(boardSize), [boardSize]);
 
   // Fast stone map for lookup
@@ -208,46 +217,62 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
     return () => clearInterval(timer);
   }, [laserTrails.length]);
 
-  // Pointer interactions
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    const isDrawingTool = activeTool.startsWith('draw-');
+    // Left click only
+    if (e.button !== 0) return;
 
-    if (isDrawingTool) {
+    // Drawing tools
+    if (activeTool === 'draw-pen') {
+      setIsDrawing(true);
       const pt = getNormalizedPointFromEvent(e);
-      if (activeTool === 'draw-pen') {
-        setIsDrawing(true);
-        setCurrentPathPoints([pt]);
-      } else if (activeTool === 'draw-arrow' || activeTool === 'draw-line') {
-        setIsDrawing(true);
-        setArrowStart(pt);
-        setArrowCurrent(pt);
-      } else if (activeTool === 'draw-laser') {
-        setIsDrawing(true);
-        setCurrentPathPoints([pt]);
-        setLaserTrails(prev => [...prev, { id: `laser_${Date.now()}`, points: [pt], timestamp: Date.now() }]);
-      }
+      setCurrentPathPoints([pt]);
+    } else if (activeTool === 'draw-arrow' || activeTool === 'draw-line') {
+      setIsDrawing(true);
+      const pt = getNormalizedPointFromEvent(e);
+      setArrowStart(pt);
+      setArrowCurrent(pt);
+    } else if (activeTool === 'draw-laser') {
+      const pt = getNormalizedPointFromEvent(e);
+      setLaserTrails(prev => [
+        ...prev,
+        { id: `laser_${Date.now()}_${Math.random()}`, points: [pt], timestamp: Date.now() }
+      ]);
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const pt = getGridPointFromEvent(e);
-    setHoverPoint(pt);
+    const gridPt = getGridPointFromEvent(e);
+    setHoverPoint(gridPt);
 
-    if (isDrawing) {
-      const normPt = getNormalizedPointFromEvent(e);
-      if (activeTool === 'draw-pen') {
-        setCurrentPathPoints(prev => [...prev, normPt]);
-      } else if (activeTool === 'draw-arrow' || activeTool === 'draw-line') {
-        setArrowCurrent(normPt);
-      } else if (activeTool === 'draw-laser') {
-        setCurrentPathPoints(prev => [...prev, normPt]);
-        setLaserTrails(prev => {
-          if (prev.length === 0) return prev;
-          const last = prev[prev.length - 1];
-          const updated = { ...last, points: [...last.points, normPt], timestamp: Date.now() };
-          return [...prev.slice(0, -1), updated];
-        });
-      }
+    if (activeTool === 'draw-laser' && e.buttons === 1) {
+      const pt = getNormalizedPointFromEvent(e);
+      setLaserTrails(prev => {
+        if (prev.length === 0) {
+          return [{ id: `laser_${Date.now()}`, points: [pt], timestamp: Date.now() }];
+        }
+        const last = prev[prev.length - 1];
+        if (Date.now() - last.timestamp < 350) {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...last,
+            points: [...last.points, pt]
+          };
+          return updated;
+        } else {
+          return [...prev, { id: `laser_${Date.now()}`, points: [pt], timestamp: Date.now() }];
+        }
+      });
+      return;
+    }
+
+    if (!isDrawing) return;
+
+    if (activeTool === 'draw-pen') {
+      const pt = getNormalizedPointFromEvent(e);
+      setCurrentPathPoints(prev => [...prev, pt]);
+    } else if (activeTool === 'draw-arrow' || activeTool === 'draw-line') {
+      const pt = getNormalizedPointFromEvent(e);
+      setArrowCurrent(pt);
     }
   };
 
@@ -343,268 +368,6 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
     }
   };
 
-  // Convert normalized points array to SVG path string
-  const renderPathD = (points: DrawingPoint[]) => {
-    if (points.length < 2) return '';
-    const p0 = points[0];
-    let d = `M ${p0.x * boardDimension} ${p0.y * boardDimension}`;
-    for (let i = 1; i < points.length; i++) {
-      const p = points[i];
-      d += ` L ${p.x * boardDimension} ${p.y * boardDimension}`;
-    }
-    return d;
-  };
-
-  // Render stone graphics based on stone theme
-  const renderStoneGraphics = (
-    cx: number,
-    cy: number,
-    radius: number,
-    isBlack: boolean,
-    themeStyle: StoneTheme
-  ) => {
-    switch (themeStyle) {
-      case 'slate-shell':
-        if (isBlack) {
-          return (
-            <circle
-              cx={cx}
-              cy={cy}
-              r={radius}
-              fill="url(#slateBlackGradient)"
-              filter="url(#stoneShadowSoft)"
-              stroke="#16181b"
-              strokeWidth="0.6"
-            />
-          );
-        } else {
-          return (
-            <g>
-              <circle
-                cx={cx}
-                cy={cy}
-                r={radius}
-                fill="url(#shellWhiteGradient)"
-                filter="url(#stoneShadowSoft)"
-                stroke="#c2b39b"
-                strokeWidth="0.75"
-              />
-              {/* Clam Shell Natural Grain Striations */}
-              <path
-                d={`M ${cx - radius * 0.72} ${cy - radius * 0.42} Q ${cx} ${cy - radius * 0.6} ${cx + radius * 0.72} ${cy - radius * 0.32}`}
-                fill="none"
-                stroke="#7e6c56"
-                strokeWidth="0.6"
-                opacity="0.16"
-                pointerEvents="none"
-              />
-              <path
-                d={`M ${cx - radius * 0.88} ${cy - radius * 0.02} Q ${cx} ${cy - radius * 0.22} ${cx + radius * 0.86} ${cy + radius * 0.08}`}
-                fill="none"
-                stroke="#7e6c56"
-                strokeWidth="0.65"
-                opacity="0.18"
-                pointerEvents="none"
-              />
-              <path
-                d={`M ${cx - radius * 0.76} ${cy + radius * 0.44} Q ${cx} ${cy + radius * 0.24} ${cx + radius * 0.74} ${cy + radius * 0.5}`}
-                fill="none"
-                stroke="#7e6c56"
-                strokeWidth="0.6"
-                opacity="0.16"
-                pointerEvents="none"
-              />
-            </g>
-          );
-        }
-      case 'glass':
-        if (isBlack) {
-          return (
-            <g>
-              <circle
-                cx={cx}
-                cy={cy}
-                r={radius}
-                fill="url(#glassBlackGradient)"
-                filter="url(#stoneShadow)"
-                stroke="#000000"
-                strokeWidth="0.5"
-              />
-              {/* Specular curved gleam */}
-              <ellipse
-                cx={cx - radius * 0.28}
-                cy={cy - radius * 0.32}
-                rx={radius * 0.38}
-                ry={radius * 0.18}
-                transform={`rotate(-28 ${cx - radius * 0.28} ${cy - radius * 0.32})`}
-                fill="#ffffff"
-                opacity="0.28"
-                pointerEvents="none"
-              />
-              {/* Lower reflection arc */}
-              <path
-                d={`M ${cx + radius * 0.3} ${cy + radius * 0.7} A ${radius * 0.88} ${radius * 0.88} 0 0 0 ${cx + radius * 0.7} ${cy + radius * 0.3}`}
-                fill="none"
-                stroke="#93c5fd"
-                strokeWidth="1.2"
-                opacity="0.22"
-                strokeLinecap="round"
-                pointerEvents="none"
-              />
-            </g>
-          );
-        } else {
-          return (
-            <g>
-              <circle
-                cx={cx}
-                cy={cy}
-                r={radius}
-                fill="url(#glassWhiteGradient)"
-                filter="url(#stoneShadow)"
-                stroke="#94a3b8"
-                strokeWidth="0.75"
-              />
-              {/* Specular curved gleam */}
-              <ellipse
-                cx={cx - radius * 0.28}
-                cy={cy - radius * 0.32}
-                rx={radius * 0.35}
-                ry={radius * 0.16}
-                transform={`rotate(-28 ${cx - radius * 0.28} ${cy - radius * 0.32})`}
-                fill="#ffffff"
-                opacity="0.8"
-                pointerEvents="none"
-              />
-              {/* Lower reflection arc */}
-              <path
-                d={`M ${cx + radius * 0.3} ${cy + radius * 0.7} A ${radius * 0.88} ${radius * 0.88} 0 0 0 ${cx + radius * 0.7} ${cy + radius * 0.3}`}
-                fill="none"
-                stroke="#60a5fa"
-                strokeWidth="1.2"
-                opacity="0.2"
-                strokeLinecap="round"
-                pointerEvents="none"
-              />
-            </g>
-          );
-        }
-      case 'yunzi':
-        if (isBlack) {
-          return (
-            <g>
-              <circle
-                cx={cx}
-                cy={cy}
-                r={radius}
-                fill="url(#yunziBlackGradient)"
-                filter="url(#stoneShadowSoft)"
-                stroke="#0a0f0d"
-                strokeWidth="0.75"
-              />
-              {/* Translucent jadeite rim glow */}
-              <circle
-                cx={cx}
-                cy={cy}
-                r={radius - 1.2}
-                fill="none"
-                stroke="#10b981"
-                strokeWidth="1.3"
-                opacity="0.32"
-                pointerEvents="none"
-              />
-            </g>
-          );
-        } else {
-          return (
-            <circle
-              cx={cx}
-              cy={cy}
-              r={radius}
-              fill="url(#yunziWhiteGradient)"
-              filter="url(#stoneShadowSoft)"
-              stroke="#b3a486"
-              strokeWidth="0.75"
-            />
-          );
-        }
-      case 'flat':
-        return (
-          <circle
-            cx={cx}
-            cy={cy}
-            r={radius}
-            fill={isBlack ? '#0f172a' : '#ffffff'}
-            stroke="#000000"
-            strokeWidth={isBlack ? '0.6' : '2'}
-          />
-        );
-      case 'classic':
-      default:
-        return (
-          <circle
-            cx={cx}
-            cy={cy}
-            r={radius}
-            fill={isBlack ? 'url(#classicBlackGradient)' : 'url(#classicWhiteGradient)'}
-            filter="url(#stoneShadow)"
-            stroke={isBlack ? '#111' : '#c5cbd3'}
-            strokeWidth={isBlack ? '0.5' : '1'}
-          />
-        );
-    }
-  };
-
-  // Render ghost hover stone
-  const renderGhostStone = (
-    cx: number,
-    cy: number,
-    radius: number,
-    isWhite: boolean,
-    themeStyle: StoneTheme
-  ) => {
-    if (themeStyle === 'flat') {
-      return (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={radius}
-          fill={isWhite ? '#ffffff' : '#0f172a'}
-          stroke="#000000"
-          strokeWidth={isWhite ? '2' : '0.6'}
-          opacity={0.45}
-        />
-      );
-    }
-    const fillUrl = isWhite
-      ? themeStyle === 'slate-shell'
-        ? 'url(#shellWhiteGradient)'
-        : themeStyle === 'glass'
-        ? 'url(#glassWhiteGradient)'
-        : themeStyle === 'yunzi'
-        ? 'url(#yunziWhiteGradient)'
-        : 'url(#classicWhiteGradient)'
-      : themeStyle === 'slate-shell'
-      ? 'url(#slateBlackGradient)'
-      : themeStyle === 'glass'
-      ? 'url(#glassBlackGradient)'
-      : themeStyle === 'yunzi'
-      ? 'url(#yunziBlackGradient)'
-      : 'url(#classicBlackGradient)';
-
-    return (
-      <circle
-        cx={cx}
-        cy={cy}
-        r={radius}
-        fill={fillUrl}
-        opacity={0.5}
-        stroke={isWhite ? '#cbd5e1' : '#334155'}
-        strokeWidth="0.8"
-      />
-    );
-  };
-
   return (
     <div
       ref={containerRef}
@@ -622,83 +385,7 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        <defs>
-          {/* Classic Stone Gradients */}
-          <radialGradient id="classicBlackGradient" cx="35%" cy="30%" r="70%">
-            <stop offset="0%" stopColor="#4a4d52" />
-            <stop offset="25%" stopColor="#282a2d" />
-            <stop offset="70%" stopColor="#141517" />
-            <stop offset="100%" stopColor="#080809" />
-          </radialGradient>
-          <radialGradient id="classicWhiteGradient" cx="35%" cy="30%" r="70%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="60%" stopColor="#f1f3f5" />
-            <stop offset="85%" stopColor="#d5d9de" />
-            <stop offset="100%" stopColor="#b0b6be" />
-          </radialGradient>
-
-          {/* Slate & Shell Gradients */}
-          <radialGradient id="slateBlackGradient" cx="35%" cy="30%" r="70%">
-            <stop offset="0%" stopColor="#383d45" />
-            <stop offset="35%" stopColor="#202327" />
-            <stop offset="75%" stopColor="#111315" />
-            <stop offset="100%" stopColor="#08090a" />
-          </radialGradient>
-          <radialGradient id="shellWhiteGradient" cx="35%" cy="30%" r="70%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="45%" stopColor="#fbf7ed" />
-            <stop offset="80%" stopColor="#ece2ce" />
-            <stop offset="100%" stopColor="#d5c5ad" />
-          </radialGradient>
-
-          {/* Glass Stone Gradients */}
-          <radialGradient id="glassBlackGradient" cx="35%" cy="28%" r="70%">
-            <stop offset="0%" stopColor="#585e68" />
-            <stop offset="25%" stopColor="#22252a" />
-            <stop offset="70%" stopColor="#0a0b0d" />
-            <stop offset="100%" stopColor="#000000" />
-          </radialGradient>
-          <radialGradient id="glassWhiteGradient" cx="32%" cy="28%" r="70%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="40%" stopColor="#f1f7fc" />
-            <stop offset="80%" stopColor="#cfe0ee" />
-            <stop offset="100%" stopColor="#a3bbd1" />
-          </radialGradient>
-
-          {/* Yunzi Stone Gradients */}
-          <radialGradient id="yunziBlackGradient" cx="35%" cy="30%" r="70%">
-            <stop offset="0%" stopColor="#2a3831" />
-            <stop offset="40%" stopColor="#16221d" />
-            <stop offset="80%" stopColor="#0a120e" />
-            <stop offset="100%" stopColor="#060908" />
-          </radialGradient>
-          <radialGradient id="yunziWhiteGradient" cx="35%" cy="30%" r="70%">
-            <stop offset="0%" stopColor="#fffdf8" />
-            <stop offset="45%" stopColor="#ede6d3" />
-            <stop offset="80%" stopColor="#ded3b9" />
-            <stop offset="100%" stopColor="#c5b697" />
-          </radialGradient>
-
-          {/* Stone Drop Shadows */}
-          <filter id="stoneShadow" x="-30%" y="-30%" width="160%" height="160%">
-            <feDropShadow dx="3" dy="4" stdDeviation="3.5" floodColor="#000000" floodOpacity="0.45" />
-          </filter>
-          <filter id="stoneShadowSoft" x="-30%" y="-30%" width="160%" height="160%">
-            <feDropShadow dx="2" dy="3" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.35" />
-          </filter>
-
-          {/* Arrowhead marker definition */}
-          <marker
-            id="arrowhead"
-            markerWidth="8"
-            markerHeight="8"
-            refX="6"
-            refY="4"
-            orient="auto"
-          >
-            <polygon points="0 1, 8 4, 0 7" fill={brushColor} />
-          </marker>
-        </defs>
+        <BoardDefs brushColor={brushColor} />
 
         {/* Board Background texture overlay */}
         <rect
@@ -712,378 +399,78 @@ export const GobanBoard: React.FC<GobanBoardProps> = ({
 
         {/* Coordinates */}
         {showCoordinates && (
-          <g className="font-mono font-semibold text-[15px]" fill={themeStyles.coordColor} style={{ userSelect: 'none' }}>
-            {Array.from({ length: boardSize }).map((_, i) => {
-              const xPos = margin + i * cellSize;
-              const yPos = margin + i * cellSize;
-              const xLabel = getXCoordinateLabel(i);
-              const yLabel = getYCoordinateLabel(i, boardSize);
-
-              return (
-                <React.Fragment key={`coord_${i}`}>
-                  {/* Top & Bottom X coordinates */}
-                  <text x={xPos} y={margin - 12} textAnchor="middle" dominantBaseline="middle">
-                    {xLabel}
-                  </text>
-                  <text x={xPos} y={boardDimension - margin + 14} textAnchor="middle" dominantBaseline="middle">
-                    {xLabel}
-                  </text>
-
-                  {/* Left & Right Y coordinates */}
-                  <text x={margin - 14} y={yPos} textAnchor="middle" dominantBaseline="middle">
-                    {yLabel}
-                  </text>
-                  <text x={boardDimension - margin + 14} y={yPos} textAnchor="middle" dominantBaseline="middle">
-                    {yLabel}
-                  </text>
-                </React.Fragment>
-              );
-            })}
-          </g>
+          <BoardCoordinates
+            boardSize={boardSize}
+            margin={margin}
+            cellSize={cellSize}
+            boardDimension={boardDimension}
+            coordColor={themeStyles.coordColor}
+          />
         )}
 
-        {/* Grid Lines */}
-        <g stroke={themeStyles.lineColor} strokeWidth="1.6" strokeLinecap="round">
-          {Array.from({ length: boardSize }).map((_, i) => {
-            const coord = margin + i * cellSize;
-            const start = margin;
-            const end = boardDimension - margin;
-            return (
-              <React.Fragment key={`line_${i}`}>
-                {/* Horizontal line */}
-                <line x1={start} y1={coord} x2={end} y2={coord} />
-                {/* Vertical line */}
-                <line x1={coord} y1={start} x2={coord} y2={end} />
-              </React.Fragment>
-            );
-          })}
-        </g>
-
-        {/* Star Points (Hoshi) */}
-        <g fill={themeStyles.starColor}>
-          {starPoints.map((sp, idx) => {
-            const { cx, cy } = getSvgCoords(sp);
-            return <circle key={`star_${idx}`} cx={cx} cy={cy} r={boardSize === 19 ? 4.2 : 3.5} />;
-          })}
-        </g>
+        {/* Grid Lines & Star Points */}
+        <BoardGridLines
+          boardSize={boardSize}
+          margin={margin}
+          cellSize={cellSize}
+          boardDimension={boardDimension}
+          lineColor={themeStyles.lineColor}
+          starColor={themeStyles.starColor}
+          starPoints={starPoints}
+          getSvgCoords={getSvgCoords}
+        />
 
         {/* Placed Stones */}
-        <g>
-          {stones.map((stone) => {
-            const { cx, cy } = getSvgCoords(stone);
-            const isBlack = stone.color === 'B';
-            const showNumber =
-              numberingMode === 'none'
-                ? false
-                : numberingMode === 'last-only'
-                ? stone.isLastMove
-                : stone.number !== null;
-
-            return (
-              <g key={`stone_${stone.x}_${stone.y}`}>
-                {/* Rendered Stone according to stoneTheme */}
-                {renderStoneGraphics(cx, cy, stoneRadius, isBlack, stoneTheme)}
-
-                {/* Last Move Ring Indicator */}
-                {stone.isLastMove && (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={showNumber ? stoneRadius - 2.5 : stoneRadius * 0.38}
-                    fill="none"
-                    stroke={isBlack ? '#38bdf8' : '#2563eb'}
-                    strokeWidth={showNumber ? '2.5' : '3.2'}
-                  />
-                )}
-
-                {/* Move Number Typography */}
-                {showNumber && stone.number !== null && (
-                  <text
-                    x={cx}
-                    y={cy + 1}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill={isBlack ? '#ffffff' : stoneTheme === 'flat' ? '#000000' : '#0f172a'}
-                    fontSize={stone.number > 99 ? `${cellSize * 0.36}px` : `${cellSize * 0.44}px`}
-                    fontWeight="700"
-                    fontFamily="system-ui, -apple-system, sans-serif"
-                    style={{ pointerEvents: 'none' }}
-                  >
-                    {stone.number}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </g>
+        <StoneRenderer
+          stones={stones}
+          stoneRadius={stoneRadius}
+          cellSize={cellSize}
+          stoneTheme={stoneTheme}
+          numberingMode={numberingMode}
+          getSvgCoords={getSvgCoords}
+        />
 
         {/* Board Markings Layer */}
-        <g style={{ pointerEvents: 'none' }}>
-          {markings.map((mark, idx) => {
-            const { cx, cy } = getSvgCoords(mark);
-            const stoneAtPoint = stoneMap.get(`${mark.x},${mark.y}`);
-            const defaultMarkColor = stoneAtPoint
-              ? stoneAtPoint.color === 'B'
-                ? '#ffffff'
-                : '#1e293b'
-              : '#dc2626';
-            const color = mark.color || defaultMarkColor;
-            const size = cellSize * 0.55;
-
-            switch (mark.type) {
-              case 'TR': // Triangle
-                const h = size * 0.866;
-                const points = `${cx},${cy - h * 0.6} ${cx - size / 2},${cy + h * 0.4} ${cx + size / 2},${cy + h * 0.4}`;
-                return (
-                  <polygon
-                    key={`mark_tr_${idx}`}
-                    points={points}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="3"
-                    strokeLinejoin="round"
-                  />
-                );
-              case 'SQ': // Square
-                const half = size * 0.42;
-                return (
-                  <rect
-                    key={`mark_sq_${idx}`}
-                    x={cx - half}
-                    y={cy - half}
-                    width={half * 2}
-                    height={half * 2}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="3"
-                    strokeLinejoin="round"
-                  />
-                );
-              case 'CR': // Circle
-                return (
-                  <circle
-                    key={`mark_cr_${idx}`}
-                    cx={cx}
-                    cy={cy}
-                    r={size * 0.42}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="3"
-                  />
-                );
-              case 'MA': // Cross (X)
-                const d = size * 0.38;
-                return (
-                  <g key={`mark_ma_${idx}`} stroke={color} strokeWidth="3.2" strokeLinecap="round">
-                    <line x1={cx - d} y1={cy - d} x2={cx + d} y2={cy + d} />
-                    <line x1={cx + d} y1={cy - d} x2={cx - d} y2={cy + d} />
-                  </g>
-                );
-              case 'LB': // Label
-                const labelText = mark.label || 'A';
-                const labelLen = labelText.length;
-                const fontSize =
-                  labelLen > 2
-                    ? `${cellSize * 0.32}px`
-                    : labelLen > 1
-                    ? `${cellSize * 0.38}px`
-                    : `${cellSize * 0.46}px`;
-
-                return (
-                  <g key={`mark_lb_${idx}`}>
-                    {!stoneAtPoint && (
-                      <circle cx={cx} cy={cy} r={cellSize * 0.38} fill="#ffffff" stroke="#334155" strokeWidth="1.5" />
-                    )}
-                    <text
-                      x={cx}
-                      y={cy + 1}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill={stoneAtPoint ? (stoneAtPoint.color === 'B' ? '#fff' : '#000') : '#0f172a'}
-                      fontSize={fontSize}
-                      fontWeight="bold"
-                    >
-                      {labelText}
-                    </text>
-                  </g>
-                );
-              case 'TB': // Territory Black
-                return (
-                  <rect
-                    key={`mark_tb_${idx}`}
-                    x={cx - cellSize * 0.2}
-                    y={cy - cellSize * 0.2}
-                    width={cellSize * 0.4}
-                    height={cellSize * 0.4}
-                    fill="#0f172a"
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                  />
-                );
-              case 'TW': // Territory White
-                return (
-                  <rect
-                    key={`mark_tw_${idx}`}
-                    x={cx - cellSize * 0.2}
-                    y={cy - cellSize * 0.2}
-                    width={cellSize * 0.4}
-                    height={cellSize * 0.4}
-                    fill="#ffffff"
-                    stroke="#0f172a"
-                    strokeWidth="1.2"
-                  />
-                );
-              default:
-                return null;
-            }
-          })}
-        </g>
+        <MarkingRenderer
+          markings={markings}
+          stoneMap={stoneMap}
+          cellSize={cellSize}
+          getSvgCoords={getSvgCoords}
+        />
 
         {/* Freehand Vector Drawings Layer */}
-        <g style={{ pointerEvents: 'none' }}>
-          {drawings.map((draw) => {
-            if (draw.type === 'freeline') {
-              return (
-                <path
-                  key={draw.id}
-                  d={renderPathD(draw.points)}
-                  fill="none"
-                  stroke={draw.color}
-                  strokeWidth={draw.width * 1.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  opacity={draw.opacity ?? 0.9}
-                />
-              );
-            } else if (draw.type === 'arrow' && draw.points.length >= 2) {
-              const p1 = draw.points[0];
-              const p2 = draw.points[1];
-              const x1 = p1.x * boardDimension;
-              const y1 = p1.y * boardDimension;
-              const x2 = p2.x * boardDimension;
-              const y2 = p2.y * boardDimension;
-
-              // Calculate arrowhead geometry
-              const angle = Math.atan2(y2 - y1, x2 - x1);
-              const headLen = 16 + draw.width * 2;
-              const a1X = x2 - headLen * Math.cos(angle - Math.PI / 6);
-              const a1Y = y2 - headLen * Math.sin(angle - Math.PI / 6);
-              const a2X = x2 - headLen * Math.cos(angle + Math.PI / 6);
-              const a2Y = y2 - headLen * Math.sin(angle + Math.PI / 6);
-
-              return (
-                <g key={draw.id}>
-                  <line
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke={draw.color}
-                    strokeWidth={draw.width * 1.5}
-                    strokeLinecap="round"
-                  />
-                  <polygon
-                    points={`${x2},${y2} ${a1X},${a1Y} ${a2X},${a2Y}`}
-                    fill={draw.color}
-                  />
-                </g>
-              );
-            } else if (draw.type === 'line' && draw.points.length >= 2) {
-              const p1 = draw.points[0];
-              const p2 = draw.points[1];
-              return (
-                <line
-                  key={draw.id}
-                  x1={p1.x * boardDimension}
-                  y1={p1.y * boardDimension}
-                  x2={p2.x * boardDimension}
-                  y2={p2.y * boardDimension}
-                  stroke={draw.color}
-                  strokeWidth={draw.width * 1.5}
-                  strokeLinecap="round"
-                />
-              );
-            }
-            return null;
-          })}
-
-          {/* Active Freehand Path Preview while user is drawing */}
-          {isDrawing && activeTool === 'draw-pen' && currentPathPoints.length > 1 && (
-            <path
-              d={renderPathD(currentPathPoints)}
-              fill="none"
-              stroke={brushColor}
-              strokeWidth={brushWidth * 1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={0.85}
-            />
-          )}
-
-          {/* Active Arrow Preview while dragging */}
-          {isDrawing && activeTool === 'draw-arrow' && arrowStart && arrowCurrent && (
-            <line
-              x1={arrowStart.x * boardDimension}
-              y1={arrowStart.y * boardDimension}
-              x2={arrowCurrent.x * boardDimension}
-              y2={arrowCurrent.y * boardDimension}
-              stroke={brushColor}
-              strokeWidth={brushWidth * 1.5}
-              strokeDasharray="6 3"
-              strokeLinecap="round"
-            />
-          )}
-
-          {/* Laser Pointer Trails */}
-          {laserTrails.map(trail => {
-            const age = Date.now() - trail.timestamp;
-            const laserOpacity = Math.max(0, 1 - age / 1400);
-            return (
-              <path
-                key={trail.id}
-                d={renderPathD(trail.points)}
-                fill="none"
-                stroke="#ff0055"
-                strokeWidth={7}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity={laserOpacity}
-                filter="drop-shadow(0 0 6px #ff0055)"
-              />
-            );
-          })}
-        </g>
+        <DrawingRenderer
+          drawings={drawings}
+          boardDimension={boardDimension}
+          isDrawing={isDrawing}
+          activeTool={activeTool}
+          currentPathPoints={currentPathPoints}
+          brushColor={brushColor}
+          brushWidth={brushWidth}
+          arrowStart={arrowStart}
+          arrowCurrent={arrowCurrent}
+          laserTrails={laserTrails}
+        />
 
         {/* Hover Ghost Stone Preview */}
         {hoverPoint && !isDrawing && activeTool.startsWith('stone-') && activeTool !== 'stone-remove' && !stoneMap.has(`${hoverPoint.x},${hoverPoint.y}`) && (
           <g style={{ pointerEvents: 'none' }}>
-            {renderGhostStone(
-              getSvgCoords(hoverPoint).cx,
-              getSvgCoords(hoverPoint).cy,
-              stoneRadius,
-              activeTool === 'stone-white' || (activeTool === 'stone-alt' && stones.length % 2 === 1),
-              stoneTheme
-            )}
+            <GhostStoneRenderer
+              cx={getSvgCoords(hoverPoint).cx}
+              cy={getSvgCoords(hoverPoint).cy}
+              radius={stoneRadius}
+              isWhite={activeTool === 'stone-white' || (activeTool === 'stone-alt' && stones.length % 2 === 1)}
+              themeStyle={stoneTheme}
+            />
           </g>
         )}
       </svg>
 
       {/* Layer Locked Status Watermark Badge */}
-      {activeSubLayerLocked ? (
-        <div className="absolute top-4 right-4 bg-amber-500/90 text-slate-900 font-bold text-xs uppercase tracking-wider px-2.5 py-1 rounded-md shadow-md backdrop-blur flex items-center gap-1.5 pointer-events-none">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          Subvariation Locked
-        </div>
-      ) : isLocked ? (
-        <div className="absolute top-4 right-4 bg-amber-500/80 text-slate-900 font-bold text-xs tracking-wider px-2.5 py-1 rounded-md shadow-md backdrop-blur flex items-center gap-1.5 pointer-events-none">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          Variation Locked (Drawings & Moves branch to Subvariation)
-        </div>
-      ) : null}
+      <BoardLockBadge
+        isLocked={isLocked}
+        activeSubLayerLocked={activeSubLayerLocked}
+      />
     </div>
   );
 };

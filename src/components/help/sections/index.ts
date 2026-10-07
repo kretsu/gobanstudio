@@ -1,0 +1,9 @@
+export { OverviewSection } from './OverviewSection';
+export { LayersVariationsSection } from './LayersVariationsSection';
+export { LockingSection } from './LockingSection';
+export { MarkingsDrawingSection } from './MarkingsDrawingSection';
+export { PlaybackScrubberSection } from './PlaybackScrubberSection';
+export { SettingsThemesSection } from './SettingsThemesSection';
+export { LessonNotesSection } from './LessonNotesSection';
+export { FileExportStandaloneSection } from './FileExportStandaloneSection';
+export { ShortcutsSection } from './ShortcutsSection';

@@ -843,4 +843,60 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
       expect(resOutOfBounds.error).toBe('Coordinates out of bounds');
     });
   });
+
+  describe('Components Modular Architecture and Exports', () => {
+    it('exports all core UI components, subcomponents, and sections from components barrel', async () => {
+      const components = await import('../components/index');
+      expect(components.GobanBoard).toBeDefined();
+      expect(components.LayerPanel).toBeDefined();
+      expect(components.Header).toBeDefined();
+      expect(components.Toolbar).toBeDefined();
+      expect(components.HelpModal).toBeDefined();
+      expect(components.LessonNotes).toBeDefined();
+      expect(components.SAMPLE_LESSONS).toBeDefined();
+
+      // Board modular subcomponents
+      expect(components.BoardDefs).toBeDefined();
+      expect(components.BoardCoordinates).toBeDefined();
+      expect(components.BoardGridLines).toBeDefined();
+      expect(components.StoneRenderer).toBeDefined();
+      expect(components.GhostStoneRenderer).toBeDefined();
+      expect(components.MarkingRenderer).toBeDefined();
+      expect(components.DrawingRenderer).toBeDefined();
+      expect(components.BoardLockBadge).toBeDefined();
+
+      // Layer modular subcomponents
+      expect(components.LayerSearchFilter).toBeDefined();
+      expect(components.AddLayerMenu).toBeDefined();
+      expect(components.SubLayerItem).toBeDefined();
+      expect(components.RootLayerItem).toBeDefined();
+      expect(components.VariationItem).toBeDefined();
+
+      // Header modular subcomponents
+      expect(components.HeaderTitle).toBeDefined();
+      expect(components.HeaderCaptures).toBeDefined();
+      expect(components.HeaderSampleMenu).toBeDefined();
+      expect(components.HeaderExportMenu).toBeDefined();
+      expect(components.HeaderHelpMenu).toBeDefined();
+      expect(components.HeaderSettingsMenu).toBeDefined();
+
+      // Toolbar modular subcomponents
+      expect(components.StoneTools).toBeDefined();
+      expect(components.MarkingTools).toBeDefined();
+      expect(components.DrawingTools).toBeDefined();
+      expect(components.BrushControls).toBeDefined();
+      expect(components.PlaybackScrubber).toBeDefined();
+
+      // Help modular sections
+      expect(components.OverviewSection).toBeDefined();
+      expect(components.LayersVariationsSection).toBeDefined();
+      expect(components.LockingSection).toBeDefined();
+      expect(components.MarkingsDrawingSection).toBeDefined();
+      expect(components.PlaybackScrubberSection).toBeDefined();
+      expect(components.SettingsThemesSection).toBeDefined();
+      expect(components.LessonNotesSection).toBeDefined();
+      expect(components.FileExportStandaloneSection).toBeDefined();
+      expect(components.ShortcutsSection).toBeDefined();
+    });
+  });
 });
