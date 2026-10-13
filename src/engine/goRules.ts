@@ -168,6 +168,12 @@ export function computeBoardState(
 
   for (let i = 0; i < count; i++) {
     const m = moves[i];
+    if (m.pass || m.x < 0 || m.y < 0 || m.x >= boardSize || m.y >= boardSize) {
+      lastMove = null;
+      historyGrid.push(cloneGrid(grid));
+      continue;
+    }
+
     const res = playMoveOnGrid(grid, { x: m.x, y: m.y }, m.color, boardSize, true);
     grid = res.grid;
     lastMove = { x: m.x, y: m.y };

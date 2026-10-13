@@ -10,7 +10,7 @@
    - **Root Layer (Background / Base Game)**: Main game sequence or initial position. In Root mode, moves are numbered sequentially from 1 to the last stone ($1 \dots N$).
    - **Variation Layers**: Branching variations created under the Root layer with customizable names, tags (e.g., `#Joseki`, `#Invasion`, `#Mistake`), and branch points. When viewing a variation, Root stones are un-numbered, while variation moves start from number 1.
    - **Subvariation Layers**: Sublayers attached to any variation or root for trial moves, standard Goban markings, or freehand annotations. By default, subvariation layers are hidden when loading the project file, allowing teachers to toggle them on-demand during live lessons.
-   - **Layer Locking**: Completed root or variation layers can be locked to protect lesson materials against accidental edits. Placing stones on a locked layer automatically creates a new variation layer with move numbering restarting from 1, while drawing automatically creates a new drawing sublayer.
+   - **Layer Locking**: Completed root or variation layers can be locked to protect lesson materials against accidental edits. All layers including the Root layer are locked by default after loading a project or importing an SGF file. Placing stones on a locked layer automatically creates a new variation layer with move numbering restarting from 1, while drawing automatically creates a new drawing sublayer.
 
 2. **Goban Markings & Vector Drawing**:
    - **Standard Goban Markings**: Triangle (TR), Square (SQ), Circle (CR), Cross/Mark (MA / X), Letter / Number labels (LB), and Territory indicators.

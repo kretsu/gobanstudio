@@ -31,17 +31,34 @@ export function getDescendantVariationIds(
   variations: VariationLayer[],
   targetId: string
 ): Set<string> {
-  const ids = new Set<string>([targetId]);
-  let added = true;
-  while (added) {
-    added = false;
-    for (const v of variations) {
-      if (v.parentId && ids.has(v.parentId) && !ids.has(v.id)) {
-        ids.add(v.id);
-        added = true;
+  const childrenMap = new Map<string, string[]>();
+  for (const v of variations) {
+    if (v.parentId) {
+      const list = childrenMap.get(v.parentId);
+      if (list) {
+        list.push(v.id);
+      } else {
+        childrenMap.set(v.parentId, [v.id]);
       }
     }
   }
+
+  const ids = new Set<string>([targetId]);
+  const queue: string[] = [targetId];
+
+  while (queue.length > 0) {
+    const currId = queue.shift()!;
+    const children = childrenMap.get(currId);
+    if (children) {
+      for (const childId of children) {
+        if (!ids.has(childId)) {
+          ids.add(childId);
+          queue.push(childId);
+        }
+      }
+    }
+  }
+
   return ids;
 }
 

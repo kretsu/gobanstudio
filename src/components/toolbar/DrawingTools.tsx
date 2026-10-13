@@ -1,17 +1,19 @@
 import React from 'react';
 import { ToolType } from '../../types/goban';
-import { Minus, MoveRight, Pen, Sparkles, Trash } from 'lucide-react';
+import { Minus, MoveRight, Pen, Sparkles, Trash, Undo2 } from 'lucide-react';
 
 interface DrawingToolsProps {
   activeTool: ToolType;
   setActiveTool: (tool: ToolType) => void;
   onClearDrawings: () => void;
+  onUndoDrawing?: () => void;
 }
 
 export const DrawingTools: React.FC<DrawingToolsProps> = ({
   activeTool,
   setActiveTool,
-  onClearDrawings
+  onClearDrawings,
+  onUndoDrawing
 }) => {
   return (
     <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/70">
@@ -55,6 +57,16 @@ export const DrawingTools: React.FC<DrawingToolsProps> = ({
       >
         <Sparkles className="w-4 h-4 text-rose-400" />
       </button>
+
+      {onUndoDrawing && (
+        <button
+          onClick={onUndoDrawing}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
+          title="Undo last drawing stroke"
+        >
+          <Undo2 className="w-4 h-4" />
+        </button>
+      )}
 
       <button
         onClick={onClearDrawings}

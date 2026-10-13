@@ -392,6 +392,24 @@ export const App: React.FC = () => {
     }
   }, [project, activeVariationId, activeSubLayerId, showToast]);
 
+  const handlePassMove = useCallback(() => {
+    const nextColor = getNextStoneColor();
+    const result = recordMove(project, activeVariationId, { x: -1, y: -1, pass: true }, nextColor, currentStep);
+    if (result.error) {
+      showToast(result.error, 'warning');
+      return;
+    }
+    setProject(result.project);
+    if (result.isNewVariation && result.newVariationId) {
+      setActiveVariationId(result.newVariationId);
+      setCurrentStep(1);
+      showToast(`Pass move created new variation "${result.project.variations.find(v => v.id === result.newVariationId)?.name}"`, 'info');
+    } else {
+      setCurrentStep(prev => prev + 1);
+      showToast(`${nextColor === 'B' ? 'Black' : 'White'} passed`, 'info');
+    }
+  }, [project, activeVariationId, currentStep, getNextStoneColor, showToast]);
+
   const handleClearDrawings = useCallback(() => {
     setProject((prev) => {
       const clearSubs = (subs: SubLayer[]) =>
@@ -405,6 +423,67 @@ export const App: React.FC = () => {
     });
     showToast('All freehand drawings cleared.', 'info');
   }, [showToast]);
+
+  const handleUndoDrawing = useCallback(() => {
+    setProject((prev) => {
+      const popSubDrawings = (subs: SubLayer[]) =>
+        subs.map((s) => {
+          if (s.id === activeSubLayerId && s.drawings && s.drawings.length > 0) {
+            return { ...s, drawings: s.drawings.slice(0, -1) };
+          }
+          return s;
+        });
+
+      if (activeSubLayerId) {
+        if (activeVariationId === 'root') {
+          return {
+            ...prev,
+            root: { ...prev.root, subLayers: popSubDrawings(prev.root.subLayers || []) }
+          };
+        } else {
+          return {
+            ...prev,
+            variations: prev.variations.map((v) =>
+              v.id === activeVariationId
+                ? { ...v, subLayers: popSubDrawings(v.subLayers || []) }
+                : v
+            )
+          };
+        }
+      }
+
+      if (activeVariationId === 'root') {
+        const subs = prev.root.subLayers || [];
+        const lastWithDraw = [...subs].reverse().find(s => s.drawings && s.drawings.length > 0);
+        if (lastWithDraw) {
+          return {
+            ...prev,
+            root: {
+              ...prev.root,
+              subLayers: subs.map(s => s.id === lastWithDraw.id ? { ...s, drawings: (s.drawings || []).slice(0, -1) } : s)
+            }
+          };
+        }
+      } else {
+        const v = prev.variations.find(item => item.id === activeVariationId);
+        if (v) {
+          const subs = v.subLayers || [];
+          const lastWithDraw = [...subs].reverse().find(s => s.drawings && s.drawings.length > 0);
+          if (lastWithDraw) {
+            return {
+              ...prev,
+              variations: prev.variations.map(item => item.id === v.id ? {
+                ...item,
+                subLayers: subs.map(s => s.id === lastWithDraw.id ? { ...s, drawings: (s.drawings || []).slice(0, -1) } : s)
+              } : item)
+            };
+          }
+        }
+      }
+      return prev;
+    });
+    showToast('Undid last drawing stroke', 'info');
+  }, [activeVariationId, activeSubLayerId, showToast]);
 
   // Layer Management Handlers
   const handleAddVariation = useCallback((name: string, tags: string[], branchPoint?: number, parentId?: string) => {
@@ -700,7 +779,16 @@ export const App: React.FC = () => {
     // Render svg element to canvas then trigger image download
     const svgEl = document.querySelector('svg');
     if (!svgEl) return;
-    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const clonedSvg = svgEl.cloneNode(true) as SVGSVGElement;
+    clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    if (!clonedSvg.getAttribute('viewBox')) {
+      clonedSvg.setAttribute('viewBox', '0 0 800 800');
+    }
+    clonedSvg.setAttribute('width', '1600');
+    clonedSvg.setAttribute('height', '1600');
+
+    const svgData = new XMLSerializer().serializeToString(clonedSvg);
     const canvas = document.createElement('canvas');
     canvas.width = 1600;
     canvas.height = 1600;
@@ -710,7 +798,11 @@ export const App: React.FC = () => {
     const url = URL.createObjectURL(svgBlob);
 
     img.onload = () => {
-      ctx?.drawImage(img, 0, 0, 1600, 1600);
+      if (ctx) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, 1600, 1600);
+        ctx.drawImage(img, 0, 0, 1600, 1600);
+      }
       URL.revokeObjectURL(url);
       const pngUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
@@ -718,6 +810,10 @@ export const App: React.FC = () => {
       a.download = `${project.title.replace(/[^a-z0-9_-]/gi, '_')}_board.png`;
       a.click();
       showToast('Exported board snapshot PNG', 'success');
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      showToast('Failed to export PNG snapshot', 'warning');
     };
     img.src = url;
   }, [project.title, showToast]);
@@ -729,7 +825,11 @@ export const App: React.FC = () => {
         return;
       }
 
-      if (e.key === 'ArrowLeft') {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsHelpOpen(false);
+        setActiveSubLayerId(null);
+      } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         setCurrentStep((prev) => Math.max(0, prev - 1));
       } else if (e.key === 'ArrowRight') {
@@ -881,6 +981,8 @@ export const App: React.FC = () => {
             isPlaying={isPlaying}
             onTogglePlay={() => setIsPlaying((p) => !p)}
             onClearDrawings={handleClearDrawings}
+            onUndoDrawing={handleUndoDrawing}
+            onPassMove={handlePassMove}
             isLocked={displayState.isLocked}
           />
         </div>

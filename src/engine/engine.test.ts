@@ -561,19 +561,54 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
     expect(fcStone?.number).toBe(4);
   });
 
-  it('imports linear SGF with no branching entirely into root', () => {
+  it('imports linear SGF with no branching entirely into root with root locked by default', () => {
     const sgf = '(;GM[1]SZ[19] ;B[pd] ;W[dp] ;B[pq])';
     const imported = importSgfToProject(sgf);
     expect(imported.root.moves.length).toBe(3);
     expect(imported.variations.length).toBe(0);
+    expect(imported.root.locked).toBe(true);
   });
 
-  it('correctly loads test_joseki.sgf as the sample lesson in SAMPLE_LESSONS', () => {
+  it('locks all layers including root and variations by default upon SGF import', () => {
+    const sgf = `(;GM[1]SZ[19]KM[6.5]GN[Lock Test]
+      ;B[pd] ;W[dp]
+      (
+        ;B[pp] ;W[dd] N[Variation 1]
+      )
+      (
+        ;B[qp] ;W[dc] N[Variation 2]
+      )
+    )`;
+    const imported = importSgfToProject(sgf);
+    expect(imported.root.locked).toBe(true);
+    expect(imported.variations.length).toBe(2);
+    expect(imported.variations.every(v => v.locked)).toBe(true);
+  });
+
+  it('locks all layers including root, variations, and sublayers by default upon JSON deserialization', () => {
+    let project = createNewProject(19, 'JSON Lock Test');
+    project.root.locked = false;
+    const { project: p1, newVariationId } = addVariation(project, 'Branch 1');
+    p1.variations[0].locked = false;
+    const { project: p2 } = addSubLayer(p1, newVariationId, 'Teacher Annotations', 'drawing');
+    p2.variations[0].subLayers[0].locked = false;
+
+    const serialized = serializeProjectToJson(p2);
+    const loaded = deserializeProjectFromJson(serialized);
+
+    expect(loaded.root.locked).toBe(true);
+    expect(loaded.variations[0].locked).toBe(true);
+    expect(loaded.variations[0].subLayers[0].locked).toBe(true);
+  });
+
+  it('correctly loads test_joseki.sgf as the sample lesson in SAMPLE_LESSONS with all layers locked', () => {
     expect(SAMPLE_LESSONS.length).toBe(1);
     const sample = SAMPLE_LESSONS[0];
     expect(sample.title).toBe('3-4 One-Space High Approach The One-Space Pincer');
     expect(sample.project.root.moves.length).toBe(3);
     expect(sample.project.variations.length).toBeGreaterThan(0);
+    expect(sample.project.root.locked).toBe(true);
+    expect(sample.project.variations.every(v => v.locked)).toBe(true);
   });
 
   describe('Letter and Number Markings per layer', () => {
@@ -841,6 +876,73 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
       const project = createNewProject(19, 'Bounds Test');
       const resOutOfBounds = recordMove(project, 'root', { x: 19, y: 5 }, 'B', 0);
       expect(resOutOfBounds.error).toBe('Coordinates out of bounds');
+    });
+
+    it('correctly records pass moves on root and locked layers', () => {
+      let project = createNewProject(19, 'Pass Test');
+      // Pass move on root
+      const resPass = recordMove(project, 'root', { x: -1, y: -1, pass: true }, 'B', 0);
+      expect(resPass.error).toBeUndefined();
+      expect(resPass.isNewVariation).toBe(false);
+      project = resPass.project;
+      expect(project.root.moves.length).toBe(1);
+      expect(project.root.moves[0].pass).toBe(true);
+
+      const disp = computeDisplayState(project, 'root');
+      expect(disp.stones.length).toBe(0);
+      expect(disp.totalSteps).toBe(1);
+
+      // Lock root and make a pass move -> should auto branch
+      project.root.locked = true;
+      const resLockedPass = recordMove(project, 'root', { x: -1, y: -1, pass: true }, 'W', 1);
+      expect(resLockedPass.error).toBeUndefined();
+      expect(resLockedPass.isNewVariation).toBe(true);
+      expect(resLockedPass.newVariationId).toBeDefined();
+      const newVar = resLockedPass.project.variations.find(v => v.id === resLockedPass.newVariationId);
+      expect(newVar?.moves[0].pass).toBe(true);
+    });
+  });
+
+  describe('SGF Pass Moves & Advanced Serialization', () => {
+    it('correctly imports and exports games containing SGF pass moves (B[], W[], tt)', () => {
+      const sgfWithPass = '(;GM[1]FF[4]SZ[19]KM[6.5]RU[Japanese];B[pd];W[];B[tt];W[dp])';
+      const project = importSgfToProject(sgfWithPass);
+      expect(project.root.moves.length).toBe(4);
+      expect(project.root.moves[0]).toMatchObject({ x: 15, y: 3, color: 'B' });
+      expect(project.root.moves[1].pass).toBe(true);
+      expect(project.root.moves[2].pass).toBe(true);
+      expect(project.root.moves[3]).toMatchObject({ x: 3, y: 15, color: 'W' });
+
+      const exportedSgf = exportProjectToSgf(project);
+      expect(exportedSgf).toContain(';B[pd];W[];B[];W[dp]');
+    });
+
+    it('correctly exports projects with variations directly at Move 0 without empty branches', () => {
+      let project = createNewProject(19, 'Zero Move Root Variations');
+      // Root has 0 moves
+      const { project: pWithVar, newVariationId } = addVariation(project, 'Branch from Move 0', [], 0, 'root');
+      project = pWithVar;
+      const resMove = recordMove(project, newVariationId, { x: 3, y: 3 }, 'B', 0);
+      project = resMove.project;
+
+      const exported = exportProjectToSgf(project);
+      expect(exported).not.toContain('()');
+      expect(exported).toContain(';N[Branch from Move 0]');
+      expect(exported).toContain(';B[dd]');
+    });
+
+    it('accurately computes descendant variation ids across complex trees', () => {
+      let project = createNewProject(19, 'Descendants Test');
+      const { project: p1, newVariationId: v1 } = addVariation(project, 'V1', [], 0, 'root');
+      const { project: p2, newVariationId: v2 } = addVariation(p1, 'V2', [], 1, v1);
+      const { project: p3, newVariationId: v3 } = addVariation(p2, 'V3', [], 1, v2);
+      const { project: p4, newVariationId: v4 } = addVariation(p3, 'V4', [], 0, 'root');
+
+      const descendantsV1 = getDescendantVariationIds(p4.variations, v1);
+      expect(descendantsV1.has(v1)).toBe(true);
+      expect(descendantsV1.has(v2)).toBe(true);
+      expect(descendantsV1.has(v3)).toBe(true);
+      expect(descendantsV1.has(v4)).toBe(false);
     });
   });
 

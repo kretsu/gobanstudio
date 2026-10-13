@@ -14,6 +14,7 @@ export interface GoMove extends Point {
   moveNumber: number; // 1-indexed relative to sequence
   comment?: string;
   timeSpent?: number;
+  pass?: boolean;
 }
 
 export type MarkingType = 'TR' | 'SQ' | 'CR' | 'MA' | 'LB' | 'TB' | 'TW' | 'DIM';

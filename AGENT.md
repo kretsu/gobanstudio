@@ -13,7 +13,7 @@
 ## 2. Architecture & Technology Stack
 
 - **Runtime & Backend**: Node.js (v20+ / v24+), Express (`server.js`) serving static assets and API health endpoints.
-- **Frontend Framework**: React 18, TypeScript, Tailwind CSS, Lucide React icons.
+- **Frontend Framework**: React 19, TypeScript, Tailwind CSS, Lucide React icons.
 - **Build System**: Vite 6 / 8, PostCSS, Autoprefixer.
 - **Testing**: Vitest (`npm test`) with comprehensive unit testing covering Go rules, layer transitions, numbering, tree hierarchy, and serialization.
 - **Audio Synthesis**: Web Audio API (`src/engine/soundEffects.ts`) for realistic stone placement clacks with auto-unlocking gesture listeners.
@@ -71,6 +71,7 @@ gobanstudio/
 - **Child Variations (Sub-Variations)**: Stones seamlessly **continue numbering** from the parent variation's branch point (`parentCumulativeBranchPoint + i + 1`), preserving tactical reading continuity without resetting to 1.
 
 ### 4.2 Automated Branching & Lock Protection
+- **Default Lock on Load**: When loading any `.gobanstudio` project file, importing an SGF file, or opening sample lessons, all layers including the Root layer and all variations/sublayers are set to `locked: true` by default to safeguard curated lesson material and immediately facilitate non-destructive exploration and auto-branching.
 - **Locked Root / Locked Variation**:
   - Placing a stone automatically creates a new child variation nested under the active layer (`parentId: activeId`, `branchPoint: currentStep`), selects it, and starts the new move sequence.
   - Drawing automatically creates a new `drawing` sublayer.

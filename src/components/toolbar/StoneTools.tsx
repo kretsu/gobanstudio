@@ -1,13 +1,14 @@
 import React from 'react';
 import { ToolType } from '../../types/goban';
-import { Eraser } from 'lucide-react';
+import { Eraser, SkipForward } from 'lucide-react';
 
 interface StoneToolsProps {
   activeTool: ToolType;
   setActiveTool: (tool: ToolType) => void;
+  onPass?: () => void;
 }
 
-export const StoneTools: React.FC<StoneToolsProps> = ({ activeTool, setActiveTool }) => {
+export const StoneTools: React.FC<StoneToolsProps> = ({ activeTool, setActiveTool, onPass }) => {
   return (
     <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/70">
       <span className="text-[10px] font-bold text-slate-400 px-2 uppercase">Stones</span>
@@ -50,6 +51,17 @@ export const StoneTools: React.FC<StoneToolsProps> = ({ activeTool, setActiveToo
       >
         <span className="w-4 h-4 rounded-full bg-white border border-slate-300 inline-block shadow-sm" />
       </button>
+
+      {onPass && (
+        <button
+          onClick={onPass}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+          title="Pass Move"
+        >
+          <SkipForward className="w-3.5 h-3.5 text-amber-400" />
+          <span>Pass</span>
+        </button>
+      )}
 
       <button
         onClick={() => setActiveTool('stone-remove')}

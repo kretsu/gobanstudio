@@ -137,7 +137,7 @@ export function addSubLayer(
 export function recordMove(
   project: GobanProject,
   activeVariationId: string,
-  point: Point,
+  point: Point & { pass?: boolean },
   color: 'B' | 'W',
   currentStep: number
 ): { project: GobanProject; newVariationId?: string; isNewVariation: boolean; error?: string } {
@@ -145,14 +145,18 @@ export function recordMove(
   const parent = isRoot ? project.root : project.variations.find(v => v.id === activeVariationId);
   if (!parent) return { project, isNewVariation: false, error: 'Parent layer not found' };
 
-  if (point.x < 0 || point.x >= project.boardSize || point.y < 0 || point.y >= project.boardSize) {
-    return { project, isNewVariation: false, error: 'Coordinates out of bounds' };
-  }
+  const isPass = !!point.pass || (point.x === -1 && point.y === -1);
 
-  // Validate that the intersection is not already occupied by an existing stone
-  const displayState = computeDisplayState(project, activeVariationId, currentStep);
-  if (displayState.grid[point.y]?.[point.x] !== null) {
-    return { project, isNewVariation: false, error: 'Intersection is already occupied' };
+  if (!isPass) {
+    if (point.x < 0 || point.x >= project.boardSize || point.y < 0 || point.y >= project.boardSize) {
+      return { project, isNewVariation: false, error: 'Coordinates out of bounds' };
+    }
+
+    // Validate that the intersection is not already occupied by an existing stone
+    const displayState = computeDisplayState(project, activeVariationId, currentStep);
+    if (displayState.grid[point.y]?.[point.x] !== null) {
+      return { project, isNewVariation: false, error: 'Intersection is already occupied' };
+    }
   }
 
   // If the parent variation (or root) is locked:
@@ -169,6 +173,10 @@ export function recordMove(
       varName = `${parent.name} - Seq ${childVars.length + 1}`;
     }
 
+    const firstMove: GoMove = isPass
+      ? { x: -1, y: -1, pass: true, color, moveNumber: 1 }
+      : { x: point.x, y: point.y, color, moveNumber: 1 };
+
     const newVariation: VariationLayer = {
       id: newVarId,
       name: varName,
@@ -179,7 +187,7 @@ export function recordMove(
       locked: false,
       visible: true,
       outdated: false,
-      moves: [{ x: point.x, y: point.y, color, moveNumber: 1 }],
+      moves: [firstMove],
       markings: [],
       subLayers: []
     };
@@ -195,12 +203,9 @@ export function recordMove(
   }
 
   // Parent is unlocked: play directly on variation/root
-  const newMove: GoMove = {
-    x: point.x,
-    y: point.y,
-    color,
-    moveNumber: currentStep + 1
-  };
+  const newMove: GoMove = isPass
+    ? { x: -1, y: -1, pass: true, color, moveNumber: currentStep + 1 }
+    : { x: point.x, y: point.y, color, moveNumber: currentStep + 1 };
 
   let updatedProject: GobanProject;
   if (isRoot) {

@@ -42,12 +42,13 @@ export function getYCoordinateLabel(y: number, size: number): string {
 }
 
 export function parseSgfCoordinate(coord: string): Point | null {
-  if (!coord || coord.length < 2) return null;
+  if (!coord || coord.length < 2 || coord === 'tt') return null;
   const x = coord.charCodeAt(0) - 97; // 'a' -> 0
   const y = coord.charCodeAt(1) - 97;
   return { x, y };
 }
 
-export function formatSgfCoordinate(p: Point): string {
+export function formatSgfCoordinate(p: Point & { pass?: boolean }): string {
+  if (p.pass || p.x < 0 || p.y < 0) return '';
   return String.fromCharCode(97 + p.x) + String.fromCharCode(97 + p.y);
 }

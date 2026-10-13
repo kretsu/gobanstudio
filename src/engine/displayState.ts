@@ -82,6 +82,7 @@ export function computeDisplayState(
 
     for (let i = 0; i < stepCount; i++) {
       const m = project.root.moves[i];
+      if (m.pass || m.x < 0 || m.y < 0 || m.x >= boardSize || m.y >= boardSize) continue;
       const res = playMoveOnGrid(grid, { x: m.x, y: m.y }, m.color, boardSize, true);
       grid = res.grid;
       if (res.capturedStones.length > 0) {
@@ -94,12 +95,15 @@ export function computeDisplayState(
     const moveMap = new Map<string, number>();
     for (let i = 0; i < stepCount; i++) {
       const m = project.root.moves[i];
-      moveMap.set(`${m.x},${m.y}`, i + 1);
+      if (!m.pass && m.x >= 0 && m.y >= 0 && m.x < boardSize && m.y < boardSize) {
+        moveMap.set(`${m.x},${m.y}`, i + 1);
+      }
     }
 
     // Clear and rebuild final display stones
     stones.length = 0;
-    const lastMovePoint = stepCount > 0 ? project.root.moves[stepCount - 1] : null;
+    const lastMove = stepCount > 0 ? project.root.moves[stepCount - 1] : null;
+    const lastMovePoint = lastMove && !lastMove.pass ? lastMove : null;
 
     for (let y = 0; y < boardSize; y++) {
       for (let x = 0; x < boardSize; x++) {
@@ -175,6 +179,7 @@ export function computeDisplayState(
 
     for (let i = 0; i < rootBranchPoint; i++) {
       const m = project.root.moves[i];
+      if (m.pass || m.x < 0 || m.y < 0 || m.x >= boardSize || m.y >= boardSize) continue;
       const res = playMoveOnGrid(grid, { x: m.x, y: m.y }, m.color, boardSize, true);
       grid = res.grid;
       if (res.capturedStones.length > 0) {
@@ -202,7 +207,8 @@ export function computeDisplayState(
           : totalVarMoves;
         targetVarStepCount = varStepCount;
         if (varStepCount > 0) {
-          lastVarMove = curVar.moves[varStepCount - 1];
+          const lv = curVar.moves[varStepCount - 1];
+          lastVarMove = lv && !lv.pass ? lv : null;
         }
       } else {
         const nextVar = chain[k + 1];
@@ -212,6 +218,7 @@ export function computeDisplayState(
 
       for (let i = 0; i < varStepCount; i++) {
         const m = curVar.moves[i];
+        if (m.pass || m.x < 0 || m.y < 0 || m.x >= boardSize || m.y >= boardSize) continue;
         const res = playMoveOnGrid(grid, { x: m.x, y: m.y }, m.color, boardSize, true);
         grid = res.grid;
 

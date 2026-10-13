@@ -10,7 +10,7 @@ export const LockingSection: React.FC = () => {
           <span>Locking & Layer Protection</span>
         </h3>
         <p className="text-slate-300 text-sm">
-          Layer locking protects master game sequences and curated lesson diagrams from accidental alteration, while enabling seamless, non-destructive exploration through <strong>automatic branch and layer creation</strong>.
+          Layer locking protects master game sequences and curated lesson diagrams from accidental alteration, while enabling seamless, non-destructive exploration through <strong>automatic branch and layer creation</strong>. By default, all layers including the Root layer are locked after loading a project or SGF file.
         </p>
       </div>
 

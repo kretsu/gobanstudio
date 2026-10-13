@@ -46,6 +46,16 @@ function extractMove(node: SgfNode, currentMoveCount: number): GoMove | null {
   const comment = node.props.get('C')?.[0];
 
   if (bMove !== undefined) {
+    if (bMove === '' || bMove === 'tt') {
+      return {
+        x: -1,
+        y: -1,
+        pass: true,
+        color: 'B',
+        moveNumber: currentMoveCount + 1,
+        comment
+      };
+    }
     const pt = parseSgfCoordinate(bMove);
     if (pt) {
       return {
@@ -57,6 +67,16 @@ function extractMove(node: SgfNode, currentMoveCount: number): GoMove | null {
       };
     }
   } else if (wMove !== undefined) {
+    if (wMove === '' || wMove === 'tt') {
+      return {
+        x: -1,
+        y: -1,
+        pass: true,
+        color: 'W',
+        moveNumber: currentMoveCount + 1,
+        comment
+      };
+    }
     const pt = parseSgfCoordinate(wMove);
     if (pt) {
       return {
@@ -88,6 +108,7 @@ export function importSgfToProject(sgfText: string, filename?: string): GobanPro
   const date = rootNode.props.get('DT')?.[0] || new Date().toISOString().split('T')[0];
 
   const project = createNewProject(boardSize, projectTitle);
+  project.root.locked = true; // All layers including root are locked by default after load
   project.komi = komi;
   project.rules = rules;
   project.blackPlayer = blackPlayer;
@@ -213,7 +234,7 @@ export function importSgfToProject(sgfText: string, filename?: string): GobanPro
       description: varDesc,
       parentId,
       branchPoint,
-      locked: false,
+      locked: true, // All variation layers locked by default after load
       visible: true,
       outdated: false,
       moves: varMoves,
@@ -350,7 +371,10 @@ export function exportProjectToSgf(project: GobanProject): string {
   const rootZeroBranches = project.variations.filter(v => (!v.parentId || v.parentId === 'root') && v.branchPoint === 0);
   if (rootZeroBranches.length > 0) {
     const mainSeq = serializeTree('root', project.root.moves, 0);
-    let allBranches = `(${mainSeq})`;
+    let allBranches = '';
+    if (mainSeq) {
+      allBranches += `(${mainSeq})`;
+    }
     for (const bv of rootZeroBranches) {
       let vStr = `(;N[${escapeSgfValue(bv.name)}]`;
       if (bv.description) vStr += `C[${escapeSgfValue(bv.description)}]`;

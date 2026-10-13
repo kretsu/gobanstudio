@@ -33,20 +33,30 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
 }
 
+const noiseBufferCache = new Map<number, AudioBuffer>();
+
+function getNoiseBuffer(ctx: AudioContext): AudioBuffer {
+  const sampleRate = ctx.sampleRate;
+  let cached = noiseBufferCache.get(sampleRate);
+  if (!cached) {
+    const bufferSize = Math.max(1, Math.floor(sampleRate * 0.035));
+    cached = ctx.createBuffer(1, bufferSize, sampleRate);
+    const data = cached.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+    }
+    noiseBufferCache.set(sampleRate, cached);
+  }
+  return cached;
+}
+
 function synthesizeStoneClack(ctx: AudioContext) {
   try {
     const now = ctx.currentTime;
 
     // 1. Noise burst (initial stone click/impact)
-    const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * 0.035));
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
-    }
-
     const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = getNoiseBuffer(ctx);
 
     const noiseFilter = ctx.createBiquadFilter();
     noiseFilter.type = 'bandpass';

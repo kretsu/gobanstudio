@@ -10,6 +10,9 @@ export function deserializeProjectFromJson(jsonString: string): GobanProject {
     throw new Error('Invalid .gobanstudio project file format');
   }
 
+  // All layers including root are locked by default after load
+  parsed.root.locked = true;
+
   // Helper to migrate legacy stone sublayers to child variations
   const migratedVariations: VariationLayer[] = [];
 
@@ -24,7 +27,7 @@ export function deserializeProjectFromJson(jsonString: string): GobanProject {
           description: sub.notes || '',
           parentId,
           branchPoint: parentMovesCount,
-          locked: sub.locked ?? false,
+          locked: true,
           visible: true,
           outdated: sub.outdated ?? false,
           moves: sub.moves,
@@ -35,6 +38,7 @@ export function deserializeProjectFromJson(jsonString: string): GobanProject {
         sub.visible = sub.defaultVisible ?? false;
         sub.outdated = sub.outdated ?? false;
         sub.type = 'drawing';
+        sub.locked = true;
         remainingSubs.push(sub);
       }
     }
@@ -47,6 +51,7 @@ export function deserializeProjectFromJson(jsonString: string): GobanProject {
 
   for (const v of parsed.variations || []) {
     v.parentId = v.parentId || 'root';
+    v.locked = true;
     v.outdated = v.outdated ?? false;
     if (v.subLayers) {
       v.subLayers = migrateSubLayers(v.id, v.moves?.length || 0, v.subLayers);
