@@ -23,17 +23,7 @@ jobs:
       - run: npm run build:standalone
 
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           files: dist-standalone/index.html
           generate_release_notes: true
-
-      - name: Remove source code archives
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ github.ref_name }}"
-          # Remove auto-generated source code archives
-          gh release delete-asset "$TAG" "Source code (zip)" --quiet 2>/dev/null || true
-          gh release delete-asset "$TAG" "Source code (tar.gz)" --quiet 2>/dev/null || true
