@@ -100,6 +100,13 @@ export const VariationItem: React.FC<VariationItemProps> = ({
   const childVariationsCount = allVariations.filter((item) => item.parentId === v.id).length;
   const subLayersCount = (v.subLayers || []).length;
   const isEditing = editingId === v.id;
+  const itemRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (isVarActive && itemRef.current) {
+      itemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [isVarActive]);
 
   const handleVariationNameClick = (vId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -108,7 +115,7 @@ export const VariationItem: React.FC<VariationItemProps> = ({
   };
 
   return (
-    <div className={`relative flex flex-col ${depth > 0 ? 'ml-3 pl-2.5 border-l-2 border-indigo-500/20' : ''}`}>
+    <div ref={itemRef} className={`relative flex flex-col ${depth > 0 ? 'ml-3 pl-2.5 border-l-2 border-indigo-500/20' : ''}`}>
       {/* Variation Row Card */}
       <div
         onClick={() => onSelectVariation(v.id)}

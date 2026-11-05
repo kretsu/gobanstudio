@@ -26,19 +26,19 @@ export const LockingSection: React.FC = () => {
           <div className="flex items-center justify-between">
             <span className="font-bold text-sm text-amber-300 flex items-center gap-2">
               <GitBranch className="w-4 h-4 text-amber-400" />
-              1. Placing Stones on a Locked Layer &rarr; Auto-Creates Variation Layer
+              1. Placing Stones on a Locked Layer &rarr; Smart Navigation & Auto-Branching
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
-              Starts at Move 1
+              Smart Navigation
             </span>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed">
-            When you attempt to place a stone on any <strong>locked layer</strong> (such as the Root base game or a locked Joseki variation), GobanStudio does not block your input. Instead, it:
+            When you attempt to place a stone on any <strong>locked layer</strong> (such as the Root base game or a locked Joseki variation), GobanStudio does not block your input. Instead, it intelligently checks:
           </p>
           <ul className="list-disc list-inside text-xs text-slate-300 space-y-1.5 pl-2">
-            <li><strong>Auto-creates a new Variation Layer</strong> branching from the current board position and step.</li>
-            <li>Places the clicked stone as <strong>Move 1</strong> on this newly created variation layer.</li>
-            <li>Subsequent stones continue numbering sequentially (<code className="text-amber-300 font-mono">1, 2, 3...</code>) on the new variation.</li>
+            <li><strong>Next Move in Sequence:</strong> If the played stone is the next move in the active locked sequence, it simply advances playback to show that move.</li>
+            <li><strong>Existing Variations:</strong> If an existing child variation branching at this step starts with this move, it immediately navigates to that variation.</li>
+            <li><strong>New Branch Creation:</strong> If the move does not exist in the active sequence or any child variation, it <strong>auto-creates a new Variation Layer</strong> branching from the current step.</li>
             <li>The locked parent layer remains completely protected, unaltered, and intact.</li>
           </ul>
         </div>

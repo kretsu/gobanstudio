@@ -805,6 +805,190 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
     });
   });
 
+  describe('Locked Layer Intelligent Variation Navigation and Branching', () => {
+    it('advances current step on locked root without creating a variation when playing the next move in sequence', () => {
+      let project = createNewProject(19, 'Locked Sequence Test');
+      project.root.moves = [
+        { x: 3, y: 3, color: 'B', moveNumber: 1 },
+        { x: 15, y: 3, color: 'W', moveNumber: 2 },
+        { x: 3, y: 15, color: 'B', moveNumber: 3 }
+      ];
+      project.root.locked = true;
+
+      // At step 0, playing Move 1 (3, 3) B should advance to step 1 without creating a new variation
+      const res1 = recordMove(project, 'root', { x: 3, y: 3 }, 'B', 0);
+      expect(res1.isNewVariation).toBe(false);
+      expect(res1.targetStep).toBe(1);
+      expect(res1.project.variations.length).toBe(0);
+
+      // At step 1, playing Move 2 (15, 3) W should advance to step 2 without creating a new variation
+      const res2 = recordMove(project, 'root', { x: 15, y: 3 }, 'W', 1);
+      expect(res2.isNewVariation).toBe(false);
+      expect(res2.targetStep).toBe(2);
+      expect(res2.project.variations.length).toBe(0);
+
+      // At step 2, playing Move 3 (3, 15) B should advance to step 3 without creating a new variation
+      const res3 = recordMove(project, 'root', { x: 3, y: 15 }, 'B', 2);
+      expect(res3.isNewVariation).toBe(false);
+      expect(res3.targetStep).toBe(3);
+      expect(res3.project.variations.length).toBe(0);
+    });
+
+    it('navigates to existing child variation when playing its first move from a locked parent and computes display state at step 1', () => {
+      let project = createNewProject(19, 'Locked Branch Navigation Test');
+      project.root.moves = [
+        { x: 3, y: 3, color: 'B', moveNumber: 1 }
+      ];
+      project.root.locked = true;
+
+      // Add Variation A branching at step 1 starting with (15, 15) W, followed by (10, 10) B, and (5, 5) W
+      const { project: p1, newVariationId: varAId } = addVariation(project, 'Variation A', [], 1, 'root');
+      p1.variations[0].moves = [
+        { x: 15, y: 15, color: 'W', moveNumber: 1 },
+        { x: 10, y: 10, color: 'B', moveNumber: 2 },
+        { x: 5, y: 5, color: 'W', moveNumber: 3 }
+      ];
+      p1.variations[0].locked = true;
+
+      // Add Variation B branching at step 1 starting with (9, 9) W
+      const { project: p2, newVariationId: varBId } = addVariation(p1, 'Variation B', [], 1, 'root');
+      p2.variations[1].moves = [
+        { x: 9, y: 9, color: 'W', moveNumber: 1 }
+      ];
+      p2.variations[1].locked = true;
+
+      project = p2;
+
+      // At step 1 of locked root, playing (15, 15) W should switch to Variation A at step 1 only
+      const resA = recordMove(project, 'root', { x: 15, y: 15 }, 'W', 1);
+      expect(resA.isNewVariation).toBe(false);
+      expect(resA.navigatedToExisting).toBe(true);
+      expect(resA.targetVariationId).toBe(varAId);
+      expect(resA.targetStep).toBe(1);
+      expect(resA.project.activeVariationId).toBe(varAId);
+
+      // Verify that at targetStep = 1, only the first variation stone (15, 15) is placed (next stones (10,10) and (5,5) are NOT placed)
+      const displayAtStep1 = computeDisplayState(resA.project, varAId, resA.targetStep!);
+      const varStones = displayAtStep1.stones.filter(s => s.isVariation);
+      expect(varStones.length).toBe(1);
+      expect(varStones[0]).toMatchObject({ x: 15, y: 15, color: 'W', number: 1 });
+      expect(displayAtStep1.grid[10][10]).toBeNull();
+      expect(displayAtStep1.grid[5][5]).toBeNull();
+
+      // Once on Variation A at step 1, playing (10, 10) B should advance to step 2 in Variation A
+      const resA2 = recordMove(resA.project, varAId, { x: 10, y: 10 }, 'B', 1);
+      expect(resA2.isNewVariation).toBe(false);
+      expect(resA2.targetStep).toBe(2);
+
+      const displayAtStep2 = computeDisplayState(resA2.project, varAId, resA2.targetStep!);
+      const varStonesStep2 = displayAtStep2.stones.filter(s => s.isVariation);
+      expect(varStonesStep2.length).toBe(2);
+      expect(displayAtStep2.grid[5][5]).toBeNull();
+
+      // Back on Root at step 1, playing (9, 9) W should switch to Variation B
+      const resB = recordMove(project, 'root', { x: 9, y: 9 }, 'W', 1);
+      expect(resB.isNewVariation).toBe(false);
+      expect(resB.navigatedToExisting).toBe(true);
+      expect(resB.targetVariationId).toBe(varBId);
+      expect(resB.targetStep).toBe(1);
+    });
+
+    it('navigates to existing child variation even when parent is unlocked', () => {
+      let project = createNewProject(19, 'Unlocked Parent Navigation Test');
+      project.root.moves = [
+        { x: 3, y: 3, color: 'B', moveNumber: 1 }
+      ];
+      project.root.locked = false;
+
+      const { project: p1, newVariationId: varAId } = addVariation(project, 'Variation A', [], 1, 'root');
+      p1.variations[0].moves = [
+        { x: 15, y: 15, color: 'W', moveNumber: 1 },
+        { x: 10, y: 10, color: 'B', moveNumber: 2 }
+      ];
+
+      project = p1;
+
+      // Playing (15, 15) W should navigate to Variation A at step 1 rather than overwriting root
+      const res = recordMove(project, 'root', { x: 15, y: 15 }, 'W', 1);
+      expect(res.isNewVariation).toBe(false);
+      expect(res.navigatedToExisting).toBe(true);
+      expect(res.targetVariationId).toBe(varAId);
+      expect(res.targetStep).toBe(1);
+    });
+
+    it('creates a new variation only when the played move is neither in the current sequence nor existing child variations', () => {
+      let project = createNewProject(19, 'Locked Novel Move Test');
+      project.root.moves = [
+        { x: 3, y: 3, color: 'B', moveNumber: 1 },
+        { x: 15, y: 3, color: 'W', moveNumber: 2 }
+      ];
+      project.root.locked = true;
+
+      // Add Variation A branching at step 1 starting with (15, 15) W
+      const { project: p1 } = addVariation(project, 'Variation A', [], 1, 'root');
+      p1.variations[0].moves = [{ x: 15, y: 15, color: 'W', moveNumber: 1 }];
+      p1.variations[0].locked = true;
+      project = p1;
+
+      // At step 1 on root:
+      // (15, 3) W -> matches root move 2 -> advances step
+      const resRoot = recordMove(project, 'root', { x: 15, y: 3 }, 'W', 1);
+      expect(resRoot.isNewVariation).toBe(false);
+      expect(resRoot.targetStep).toBe(2);
+
+      // (15, 15) W -> matches Variation A -> navigates to Variation A
+      const resVarA = recordMove(project, 'root', { x: 15, y: 15 }, 'W', 1);
+      expect(resVarA.isNewVariation).toBe(false);
+      expect(resVarA.navigatedToExisting).toBe(true);
+
+      // (5, 5) W -> matches neither -> creates new variation branching at step 1!
+      const resNew = recordMove(project, 'root', { x: 5, y: 5 }, 'W', 1);
+      expect(resNew.isNewVariation).toBe(true);
+      expect(resNew.newVariationId).toBeDefined();
+      expect(resNew.project.variations.length).toBe(2);
+      const createdVar = resNew.project.variations.find(v => v.id === resNew.newVariationId);
+      expect(createdVar?.branchPoint).toBe(1);
+      expect(createdVar?.moves[0]).toMatchObject({ x: 5, y: 5, color: 'W', moveNumber: 1 });
+    });
+
+    it('handles nested multi-tier variation tree navigation smoothly', () => {
+      let project = createNewProject(19, 'Nested Tree Navigation');
+      project.root.moves = [{ x: 3, y: 3, color: 'B', moveNumber: 1 }];
+      project.root.locked = true;
+
+      // Level 1 variation
+      const { project: p1, newVariationId: v1Id } = addVariation(project, 'Level 1 Var', [], 1, 'root');
+      p1.variations[0].moves = [
+        { x: 15, y: 15, color: 'W', moveNumber: 1 },
+        { x: 10, y: 10, color: 'B', moveNumber: 2 }
+      ];
+      p1.variations[0].locked = true;
+
+      // Level 2 child variation under Level 1 Var branching at step 1
+      const { project: p2, newVariationId: v2Id } = addVariation(p1, 'Level 2 Subvar', [], 1, v1Id);
+      p2.variations[1].moves = [
+        { x: 12, y: 12, color: 'B', moveNumber: 1 }
+      ];
+      p2.variations[1].locked = true;
+
+      project = p2;
+
+      // When on Level 1 Var at step 1, playing (12, 12) B navigates to Level 2 Subvar
+      const resSub = recordMove(project, v1Id, { x: 12, y: 12 }, 'B', 1);
+      expect(resSub.isNewVariation).toBe(false);
+      expect(resSub.navigatedToExisting).toBe(true);
+      expect(resSub.targetVariationId).toBe(v2Id);
+      expect(resSub.targetStep).toBe(1);
+
+      // When on Level 1 Var at step 1, playing (7, 7) B creates a new child variation under Level 1 Var
+      const resNewSub = recordMove(project, v1Id, { x: 7, y: 7 }, 'B', 1);
+      expect(resNewSub.isNewVariation).toBe(true);
+      const newVar = resNewSub.project.variations.find(v => v.id === resNewSub.newVariationId);
+      expect(newVar?.parentId).toBe(v1Id);
+      expect(newVar?.branchPoint).toBe(1);
+    });
+  });
+
   describe('Move Placement Validation and Board Occupancy', () => {
     it('rejects placing a stone on an already occupied intersection and preserves stone move numbers', () => {
       let project = createNewProject(19, 'Occupancy Test');
@@ -943,6 +1127,30 @@ describe('Layer Manager & Tree Variations Numbering System', () => {
       expect(descendantsV1.has(v2)).toBe(true);
       expect(descendantsV1.has(v3)).toBe(true);
       expect(descendantsV1.has(v4)).toBe(false);
+    });
+  });
+
+  describe('Variation Hierarchy Traversal & Ancestor Resolution', () => {
+    it('accurately resolves full ancestor chain for nested multi-level variations', () => {
+      let project = createNewProject(19, 'Hierarchy Traversal Test');
+      const { project: p1, newVariationId: v1 } = addVariation(project, 'Top Level Var', [], 0, 'root');
+      const { project: p2, newVariationId: v2 } = addVariation(p1, 'Mid Level Subvar', [], 1, v1);
+      const { project: p3, newVariationId: v3 } = addVariation(p2, 'Leaf Level Subvar', [], 2, v2);
+
+      const chainRoot = getVariationAncestorChain(p3, 'root');
+      expect(chainRoot).toEqual([]);
+
+      const chainV1 = getVariationAncestorChain(p3, v1);
+      expect(chainV1.map(v => v.id)).toEqual([v1]);
+
+      const chainV2 = getVariationAncestorChain(p3, v2);
+      expect(chainV2.map(v => v.id)).toEqual([v1, v2]);
+
+      const chainV3 = getVariationAncestorChain(p3, v3);
+      expect(chainV3.map(v => v.id)).toEqual([v1, v2, v3]);
+      // Ancestors of v3 (excluding v3 itself)
+      const ancestorsOfV3 = chainV3.slice(0, -1).map(v => v.id);
+      expect(ancestorsOfV3).toEqual([v1, v2]);
     });
   });
 

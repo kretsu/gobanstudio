@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   GobanProject,
   SubLayer,
@@ -11,6 +11,7 @@ import {
   RootLayerItem,
   VariationItem
 } from './layers/index';
+import { getVariationAncestorChain } from '../engine/variationTree';
 
 export interface LayerPanelProps {
   project: GobanProject;
@@ -79,9 +80,42 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
   const [tagInputValue, setTagInputValue] = useState('');
   const [manuallyToggled, setManuallyToggled] = useState<Record<string, boolean>>({});
 
+  // Ensure active variation and all its ancestor variations are expanded whenever activeVariationId changes
+  useEffect(() => {
+    if (!activeVariationId || activeVariationId === 'root') return;
+
+    const chain = getVariationAncestorChain(project, activeVariationId);
+    const ancestorIds = chain.slice(0, -1).map((v) => v.id);
+
+    setManuallyToggled((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      // Expand all ancestor variations leading to the active variation
+      for (const ancId of ancestorIds) {
+        if (!next[ancId]) {
+          next[ancId] = true;
+          changed = true;
+        }
+      }
+
+      // Expand the active variation itself so its contents / sublayers are visible
+      if (!next[activeVariationId]) {
+        next[activeVariationId] = true;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [activeVariationId, project]);
+
   const isVariationExpanded = (vId: string) => {
     if (manuallyToggled[vId] !== undefined) {
       return manuallyToggled[vId];
+    }
+    // Auto-expand by default if this variation is active or an ancestor of the active variation
+    if (vId === activeVariationId || isAncestorOfVariation(vId, activeVariationId, project.variations)) {
+      return true;
     }
     return false;
   };
@@ -95,12 +129,16 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
   };
 
   const handleSelectVariation = (id: string) => {
-    if (!isVariationExpanded(id)) {
-      setManuallyToggled((prev) => ({
-        ...prev,
-        [id]: true
-      }));
-    }
+    const chain = getVariationAncestorChain(project, id);
+    const ancestorIds = chain.slice(0, -1).map((v) => v.id);
+
+    setManuallyToggled((prev) => {
+      const next = { ...prev, [id]: true };
+      for (const ancId of ancestorIds) {
+        next[ancId] = true;
+      }
+      return next;
+    });
     onSelectVariation(id);
     onSelectSubLayer(id, null);
   };

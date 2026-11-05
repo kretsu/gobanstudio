@@ -134,13 +134,34 @@ export function addSubLayer(
   return { project: updatedProject, newSubLayerId: newSubId };
 }
 
+function isMoveMatch(
+  m: GoMove | undefined,
+  point: Point & { pass?: boolean },
+  color: 'B' | 'W',
+  isPass: boolean
+): boolean {
+  if (!m) return false;
+  if (isPass) {
+    return (m.pass === true || (m.x === -1 && m.y === -1)) && m.color === color;
+  }
+  return m.x === point.x && m.y === point.y && m.color === color && !m.pass;
+}
+
 export function recordMove(
   project: GobanProject,
   activeVariationId: string,
   point: Point & { pass?: boolean },
   color: 'B' | 'W',
   currentStep: number
-): { project: GobanProject; newVariationId?: string; isNewVariation: boolean; error?: string } {
+): {
+  project: GobanProject;
+  newVariationId?: string;
+  isNewVariation: boolean;
+  navigatedToExisting?: boolean;
+  targetVariationId?: string;
+  targetStep?: number;
+  error?: string;
+} {
   const isRoot = activeVariationId === 'root';
   const parent = isRoot ? project.root : project.variations.find(v => v.id === activeVariationId);
   if (!parent) return { project, isNewVariation: false, error: 'Parent layer not found' };
@@ -159,8 +180,46 @@ export function recordMove(
     }
   }
 
-  // If the parent variation (or root) is locked:
-  // Auto-branch into a new child variation in the tree hierarchy!
+  // 1. Check if the active layer itself already has this move as its next sequential move
+  const nextMoveInCurrentLayer = parent.moves[currentStep];
+  if (isMoveMatch(nextMoveInCurrentLayer, point, color, isPass)) {
+    return {
+      project,
+      isNewVariation: false,
+      targetStep: currentStep + 1
+    };
+  }
+
+  // 2. Check if an existing child variation branching at currentStep has this move as its first move
+  const parentId = isRoot ? 'root' : parent.id;
+  const matchingChildVar = (project.variations || []).find((v) => {
+    const vParentId = v.parentId || 'root';
+    const vBranchPoint = v.branchPoint !== undefined ? v.branchPoint : 0;
+    return (
+      vParentId === parentId &&
+      vBranchPoint === currentStep &&
+      v.moves &&
+      v.moves.length > 0 &&
+      isMoveMatch(v.moves[0], point, color, isPass)
+    );
+  });
+
+  if (matchingChildVar) {
+    const updatedProject: GobanProject = {
+      ...project,
+      activeVariationId: matchingChildVar.id,
+      activeSubLayerId: null
+    };
+    return {
+      project: updatedProject,
+      isNewVariation: false,
+      navigatedToExisting: true,
+      targetVariationId: matchingChildVar.id,
+      targetStep: 1
+    };
+  }
+
+  // 3. If the parent variation (or root) is locked, auto-branch into a new child variation:
   if (parent.locked) {
     const newVarId = `var_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     let varName: string;
@@ -199,7 +258,7 @@ export function recordMove(
       activeSubLayerId: null
     };
 
-    return { project: updatedProject, newVariationId: newVarId, isNewVariation: true };
+    return { project: updatedProject, newVariationId: newVarId, isNewVariation: true, targetStep: 1 };
   }
 
   // Parent is unlocked: play directly on variation/root

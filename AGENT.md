@@ -72,9 +72,11 @@ gobanstudio/
 
 ### 4.2 Automated Branching & Lock Protection
 - **Default Lock on Load**: When loading any `.gobanstudio` project file, importing an SGF file, or opening sample lessons, all layers including the Root layer and all variations/sublayers are set to `locked: true` by default to safeguard curated lesson material and immediately facilitate non-destructive exploration and auto-branching.
-- **Locked Root / Locked Variation**:
-  - Placing a stone automatically creates a new child variation nested under the active layer (`parentId: activeId`, `branchPoint: currentStep`), selects it, and starts the new move sequence.
-  - Drawing automatically creates a new `drawing` sublayer.
+- **Locked Root / Locked Variation Intelligent Move Navigation**:
+  - When placing a stone on a locked layer (Root or Variation), GobanStudio first inspects whether the move is already the next sequential move in the active locked sequence; if so, it advances the playback step without altering the tree.
+  - If the move is not the next move in the current sequence, it checks whether an existing child variation branching at that step starts with this move. If found, it automatically navigates to that variation and displays its moves.
+  - Only if the move does not exist in the active sequence or any child variation does it automatically create a new child variation (`parentId: activeId`, `branchPoint: currentStep`), select it, and begin the new branch.
+  - Drawing on a locked layer automatically creates a new `drawing` sublayer.
 - **Unlocked Layers**:
   - Placing stones or adding markings appends directly to the active layer and marks all descendant variations/sublayers as `outdated: true`.
 - **Drawing Sublayer Interaction**:

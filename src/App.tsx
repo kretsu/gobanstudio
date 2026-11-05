@@ -60,7 +60,9 @@ export const App: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
   // Playback / Navigation Scrubber State
-  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [currentStep, setCurrentStep] = useState<number>(() => {
+    return SAMPLE_LESSONS[0].project.root.moves.length;
+  });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   // Help Modal State
@@ -102,14 +104,6 @@ export const App: React.FC = () => {
     setCurrentStep(totalMoves);
     setIsPlaying(false);
   }, [project]);
-
-  // Initial step setup on mount or project load
-  useEffect(() => {
-    const total = activeVariationId === 'root'
-      ? project.root.moves.length
-      : project.variations.find(v => v.id === activeVariationId)?.moves.length || 0;
-    setCurrentStep(total);
-  }, [activeVariationId, project.root.moves.length, project.variations]);
 
   // Auto-play slideshow timer
   useEffect(() => {
@@ -181,11 +175,17 @@ export const App: React.FC = () => {
     if (result.isNewVariation && result.newVariationId) {
       setActiveVariationId(result.newVariationId);
       setActiveSubLayerId(null);
-      setCurrentStep(1);
+      setCurrentStep(result.targetStep !== undefined ? result.targetStep : 1);
       const newVar = result.project.variations.find(v => v.id === result.newVariationId);
       showToast(`Created variation "${newVar?.name || 'New Variation'}" on locked layer`, 'success');
+    } else if (result.navigatedToExisting && result.targetVariationId) {
+      setActiveVariationId(result.targetVariationId);
+      setActiveSubLayerId(null);
+      setCurrentStep(result.targetStep !== undefined ? result.targetStep : 1);
+      const matchedVar = result.project.variations.find(v => v.id === result.targetVariationId);
+      showToast(`Navigated to existing variation "${matchedVar?.name || 'Variation'}"`, 'info');
     } else {
-      setCurrentStep((prev) => prev + 1);
+      setCurrentStep(result.targetStep !== undefined ? result.targetStep : (prev) => prev + 1);
     }
   }, [project, activeVariationId, activeSubLayerId, currentStep, getNextStoneColor, showToast]);
 
@@ -402,10 +402,16 @@ export const App: React.FC = () => {
     setProject(result.project);
     if (result.isNewVariation && result.newVariationId) {
       setActiveVariationId(result.newVariationId);
-      setCurrentStep(1);
+      setActiveSubLayerId(null);
+      setCurrentStep(result.targetStep !== undefined ? result.targetStep : 1);
       showToast(`Pass move created new variation "${result.project.variations.find(v => v.id === result.newVariationId)?.name}"`, 'info');
+    } else if (result.navigatedToExisting && result.targetVariationId) {
+      setActiveVariationId(result.targetVariationId);
+      setActiveSubLayerId(null);
+      setCurrentStep(result.targetStep !== undefined ? result.targetStep : 1);
+      showToast(`Navigated to existing variation on pass`, 'info');
     } else {
-      setCurrentStep(prev => prev + 1);
+      setCurrentStep(result.targetStep !== undefined ? result.targetStep : (prev => prev + 1));
       showToast(`${nextColor === 'B' ? 'Black' : 'White'} passed`, 'info');
     }
   }, [project, activeVariationId, currentStep, getNextStoneColor, showToast]);
@@ -620,6 +626,10 @@ export const App: React.FC = () => {
     setProject(updated);
     setActiveVariationId(updated.activeVariationId);
     setActiveSubLayerId(null);
+    const totalMoves = updated.activeVariationId === 'root'
+      ? updated.root.moves.length
+      : updated.variations.find(v => v.id === updated.activeVariationId)?.moves.length || 0;
+    setCurrentStep(totalMoves);
     showToast('Variation deleted', 'info');
   }, [project, showToast]);
 
@@ -648,6 +658,7 @@ export const App: React.FC = () => {
     setActiveVariationId(newVariationId);
     setActiveSubLayerId(null);
     const v = updated.variations.find((item) => item.id === newVariationId);
+    setCurrentStep(v?.moves.length || 0);
     showToast(`Duplicated "${v?.name || 'Variation'}"`, 'success');
   }, [project, showToast]);
 
